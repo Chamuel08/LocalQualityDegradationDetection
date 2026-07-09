@@ -1,0 +1,215 @@
+{
+  "report_id": "rpt_936e1a1dffe2",
+  "video_id": "block_01",
+  "mode": "fast",
+  "frame_index": 0,
+  "report_timestamp": "2026-07-09T14:26:46.903231+00:00",
+  "system_version": "0.1.0",
+  "overall_mos": 3.42,
+  "severity": "critical",
+  "degradations": [
+    {
+      "degradation_id": "deg_8308aa2d",
+      "region_type": "edge",
+      "degradation_type": "green_spill",
+      "severity": "critical",
+      "confidence": 0.55,
+      "mos_impact": -0.8,
+      "bbox": [
+        78,
+        54,
+        196,
+        156
+      ],
+      "frame_indices": [
+        0
+      ],
+      "description": "人物轮廓边缘出现绿色溢色/抠像绿边",
+      "detector": "edge_bleed",
+      "evidence": {
+        "method": "green_spill_lab_delta_e",
+        "metric": "spill_ratio",
+        "value": 0.0,
+        "threshold": 0.05,
+        "detail": "边缘带绿色溢出比例 0.0%，Lab ΔE 均值 57.7；超过阈值 spill≥5% / ΔE≥10.0",
+        "attention_map": null
+      },
+      "root_cause_hypothesis": {
+        "cause": "matting_error",
+        "confidence": 0.5
+      },
+      "vlm_reasoning": null
+    },
+    {
+      "degradation_id": "deg_1f9f09e7",
+      "region_type": "background",
+      "degradation_type": "blockiness",
+      "severity": "severe",
+      "confidence": 0.92,
+      "mos_impact": -0.4,
+      "bbox": [
+        0,
+        0,
+        320,
+        240
+      ],
+      "frame_indices": [
+        0
+      ],
+      "description": "画面出现块状压缩伪影/马赛克感",
+      "detector": "compression_artifact",
+      "evidence": {
+        "method": "dct_blockiness",
+        "metric": "blockiness_score",
+        "value": 7.1531,
+        "threshold": 1.8,
+        "detail": "8×8 DCT 块边界能量比 7.15；超过阈值 1.8",
+        "attention_map": null
+      },
+      "root_cause_hypothesis": {
+        "cause": "encoding_loss",
+        "confidence": 0.88
+      },
+      "vlm_reasoning": null
+    }
+  ],
+  "decision_trace": [
+    {
+      "stage": "mode_select",
+      "module": "FastPipeline",
+      "timestamp_ms": 0.0,
+      "duration_ms": 0.0,
+      "input_summary": {
+        "requested_mode": "fast"
+      },
+      "output_summary": {
+        "selected_mode": "fast"
+      },
+      "decision": "mode_fast",
+      "mode": "fast"
+    },
+    {
+      "stage": "global_scan",
+      "module": "GlobalScanner",
+      "timestamp_ms": 0.0,
+      "duration_ms": 39.832042006310076,
+      "input_summary": {
+        "frame_id": "block_01",
+        "shape": [
+          240,
+          320,
+          3
+        ]
+      },
+      "output_summary": {
+        "nominations": 2,
+        "global_quality_score": 1.0
+      },
+      "decision": "scan_complete",
+      "mode": "fast"
+    },
+    {
+      "stage": "routing",
+      "module": "FixedRouter",
+      "timestamp_ms": 39.832042006310076,
+      "duration_ms": 0.0,
+      "input_summary": {
+        "nominations": [
+          [
+            "edge_bleed"
+          ],
+          [
+            "compression_artifact"
+          ]
+        ]
+      },
+      "output_summary": {
+        "detectors": [
+          "edge_bleed",
+          "compression_artifact"
+        ]
+      },
+      "decision": "fixed_v01_route",
+      "mode": "fast"
+    },
+    {
+      "stage": "detection",
+      "module": "FastDetectors",
+      "timestamp_ms": 39.832042006310076,
+      "duration_ms": 57.84929101355374,
+      "input_summary": {
+        "detectors": [
+          "edge_bleed",
+          "compression_artifact"
+        ]
+      },
+      "output_summary": {
+        "degradation_count": 2
+      },
+      "decision": "detectors_complete",
+      "mode": "fast"
+    },
+    {
+      "stage": "aggregation",
+      "module": "ReportGenerator",
+      "timestamp_ms": 97.68133301986381,
+      "duration_ms": 0.00012500095181167126,
+      "input_summary": {
+        "degradation_count": 2
+      },
+      "output_summary": {
+        "severity_pending": true
+      },
+      "decision": "aggregate_mos",
+      "mode": "fast"
+    }
+  ],
+  "performance": {
+    "total_ms": 97.69791600410827,
+    "global_scan_ms": 39.832042006310076,
+    "detection_ms": 57.84929101355374,
+    "aggregation_ms": 0.00012500095181167126
+  },
+  "vlm_reasoning_summary": null,
+  "mos_breakdown": {
+    "base_mos": 4.5,
+    "total_penalty": -1.08,
+    "cap_applied": false,
+    "cap_reason": null,
+    "penalties": [
+      {
+        "source": "deg_8308aa2d",
+        "penalty": -0.8,
+        "effective_penalty": -0.8,
+        "decay_index": 0,
+        "reason": "人物轮廓边缘出现绿色溢色/抠像绿边"
+      },
+      {
+        "source": "deg_1f9f09e7",
+        "penalty": -0.4,
+        "effective_penalty": -0.28,
+        "decay_index": 1,
+        "reason": "画面出现块状压缩伪影/马赛克感"
+      }
+    ]
+  },
+  "degradation_summary": {
+    "total_count": 2,
+    "by_severity": {
+      "critical": 1,
+      "severe": 1
+    },
+    "by_detector": {
+      "edge_bleed": 1,
+      "compression_artifact": 1
+    },
+    "by_root_cause": {
+      "matting_error": 1,
+      "encoding_loss": 1
+    },
+    "top_issues": [
+      "人物轮廓边缘出现绿色溢色/抠像绿边",
+      "画面出现块状压缩伪影/马赛克感"
+    ]
+  }
+}

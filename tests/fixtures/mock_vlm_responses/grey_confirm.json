@@ -1,0 +1,9 @@
+{
+  "is_degraded": true,
+  "confidence": 0.82,
+  "severity": "moderate",
+  "reasoning": "ROI 可见轻微绿色溢色，符合抠像绿边特征",
+  "mos_impact_estimate": -0.3,
+  "root_cause": "matting_error",
+  "ux_impact": "边缘融合不自然"
+}

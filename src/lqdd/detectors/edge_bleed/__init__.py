@@ -1,0 +1,1 @@
+"""Edge bleed detector."""

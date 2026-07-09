@@ -1,0 +1,8 @@
+{
+  "assessment": "inconsistent",
+  "reasoning": "全局 MOS 偏低但未检出压缩伪影，建议补检",
+  "actions": [
+    {"action": "dispatch_compression", "reason": "MOS 低无检出"}
+  ],
+  "needs_round2": true
+}

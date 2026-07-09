@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/local-quality-degradation-detection/schemas/vlm-confirm.v1.json",
+  "title": "VLMConfirmOutput",
+  "description": "Structured output from VLM gray-zone confirm (002-v1-agent-layer §8)",
+  "type": "object",
+  "required": [
+    "is_degraded",
+    "confidence",
+    "severity",
+    "reasoning",
+    "mos_impact_estimate",
+    "root_cause",
+    "ux_impact"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "is_degraded": { "type": "boolean" },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["good", "minor", "moderate", "severe", "critical"]
+    },
+    "reasoning": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mos_impact_estimate": {
+      "type": "number",
+      "maximum": 0
+    },
+    "root_cause": {
+      "type": "string",
+      "enum": [
+        "generation_artifact",
+        "encoding_loss",
+        "enhancement_artifact",
+        "matting_error",
+        "lighting_inconsistency",
+        "other"
+      ]
+    },
+    "ux_impact": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

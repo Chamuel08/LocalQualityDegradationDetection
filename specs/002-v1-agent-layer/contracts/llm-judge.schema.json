@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/local-quality-degradation-detection/schemas/llm-judge.v1.json",
+  "title": "LLMJudgeOutput",
+  "description": "Structured output from LLM Judge (002-v1-agent-layer §13)",
+  "type": "object",
+  "required": ["assessment", "reasoning", "actions", "needs_round2"],
+  "additionalProperties": false,
+  "properties": {
+    "assessment": {
+      "type": "string",
+      "enum": ["consistent", "uncertain", "inconsistent"]
+    },
+    "reasoning": {
+      "type": "string",
+      "minLength": 1
+    },
+    "actions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/AgentAction" }
+    },
+    "needs_round2": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "AgentAction": {
+      "type": "object",
+      "required": ["action"],
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "vlm_analyze",
+            "rerun_detector",
+            "dispatch_compression",
+            "accept"
+          ]
+        },
+        "target_region": { "type": "string" },
+        "detector": { "type": "string" },
+        "nomination_threshold_delta": {
+          "type": "number",
+          "minimum": -0.15,
+          "maximum": -0.05
+        },
+        "reason": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "action": { "const": "vlm_analyze" } },
+            "required": ["action"]
+          },
+          "then": {
+            "required": ["target_region", "detector"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "action": { "const": "rerun_detector" } },
+            "required": ["action"]
+          },
+          "then": {
+            "required": ["detector", "nomination_threshold_delta"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "action": { "const": "accept" } },
+            "required": ["action"]
+          },
+          "then": {
+            "required": ["target_region"]
+          }
+        }
+      ]
+    }
+  }
+}

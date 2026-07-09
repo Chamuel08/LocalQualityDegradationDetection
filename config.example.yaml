@@ -1,0 +1,45 @@
+global_scan:
+  edge_expand_px: 10
+  nomination_threshold: 0.3
+  text_ui_ratio_critical: 0.6
+  subtitle_band_ratio: 0.15
+  text_edge_density: 0.12
+
+edge_bleed:
+  green_spill_minor: 0.05
+  green_spill_moderate: 0.15
+  green_spill_critical: 0.30
+  green_channel_threshold: 0.15
+  delta_e_spill_threshold: 10.0
+  spill_ratio_minor: 0.05
+
+compression:
+  blockiness_threshold: 1.8
+  blockiness_coarse_threshold: 1.4
+
+report:
+  base_mos: 4.5
+  decay_factor: 0.7
+  system_version: "0.1.0"
+
+agent:
+  enabled: true
+  max_rounds: 2
+  high_confidence_threshold: 0.7
+  grey_zone_lower: 0.4
+  grey_zone_upper: 0.7
+  max_detectors_per_frame: 5
+  hard_decision_threshold: 0.55
+
+vlm:
+  provider: ollama
+  model: qwen2.5-vl:7b
+  host: http://localhost:11434
+  timeout_ms: 2000
+  max_calls_per_frame: 3
+
+judge:
+  provider: ollama
+  model: qwen2.5:1.5b
+  host: http://localhost:11434
+  timeout_ms: 1500

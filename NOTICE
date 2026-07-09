@@ -1,0 +1,19 @@
+Local Quality Degradation Detection (lqdd)
+Copyright 2026 wendong_zhangwendong
+
+This product is licensed under the Apache License, Version 2.0.
+See the LICENSE file for the full license text.
+
+This software depends on third-party packages, each under its own license.
+Major runtime dependencies include (non-exhaustive):
+
+  - NumPy — BSD-3-Clause
+  - OpenCV (opencv-python-headless) — Apache 2.0 / BSD-3-Clause (see package metadata)
+  - PyYAML — MIT
+  - jsonschema — MIT
+  - httpx — BSD-3-Clause
+  - pytest (dev) — MIT
+  - MediaPipe (optional, extras [full]) — Apache 2.0
+
+Redistributions must comply with the Apache License 2.0 and retain
+applicable third-party license notices shipped with those dependencies.

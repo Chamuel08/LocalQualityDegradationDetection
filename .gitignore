@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+.env.*
+config.yaml
+*.log
+.DS_Store
+.pytest_cache/
+.coverage
+htmlcov/
+.cursor/
+.specify/
+
+# Plan A — local / private (not for public GitHub)
+INTERVIEW_GUIDE.md
+docs/design/
+
+# CatPaw-generated module specs & full system design (keep locally)
+specs/*.spec.md
+specs/SYSTEM_SPEC.md
+specs/DATASET_AND_BENCHMARK.md
+specs/COMPRESSION_AND_ENCODING.md
+specs/001-v0-fast-mvp/PLAN_PROMPT.md

@@ -1,0 +1,250 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/local-quality-degradation-detection/schemas/quality-report.v0.1.json",
+  "title": "QualityReport",
+  "description": "MVP v0.1 Fast Mode quality report (001-v0-fast-mvp)",
+  "type": "object",
+  "required": [
+    "report_id",
+    "video_id",
+    "mode",
+    "frame_index",
+    "report_timestamp",
+    "system_version",
+    "overall_mos",
+    "severity",
+    "degradations",
+    "decision_trace",
+    "performance"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "video_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["fast"]
+    },
+    "frame_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "report_timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "system_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "overall_mos": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 5.0
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["good", "minor", "moderate", "severe", "critical"]
+    },
+    "mos_breakdown": {
+      "$ref": "#/$defs/MOSBreakdown"
+    },
+    "degradations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DegradationItem"
+      }
+    },
+    "degradation_summary": {
+      "$ref": "#/$defs/DegradationSummary"
+    },
+    "decision_trace": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/TraceEntry"
+      }
+    },
+    "vlm_reasoning_summary": {
+      "type": ["array", "null"]
+    },
+    "performance": {
+      "$ref": "#/$defs/PerformanceMetrics"
+    }
+  },
+  "$defs": {
+    "Evidence": {
+      "type": "object",
+      "required": ["method", "metric", "value", "threshold", "detail"],
+      "additionalProperties": false,
+      "properties": {
+        "method": { "type": "string", "minLength": 1 },
+        "metric": { "type": "string", "minLength": 1 },
+        "value": { "type": "number" },
+        "threshold": { "type": "number" },
+        "detail": { "type": "string", "minLength": 1 },
+        "attention_map": { "type": ["string", "null"] }
+      }
+    },
+    "RootCauseHypothesis": {
+      "type": "object",
+      "required": ["cause", "confidence"],
+      "additionalProperties": false,
+      "properties": {
+        "cause": {
+          "type": "string",
+          "enum": [
+            "generation_artifact",
+            "encoding_loss",
+            "enhancement_artifact",
+            "matting_error",
+            "lighting_inconsistency",
+            "other"
+          ]
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "DegradationItem": {
+      "type": "object",
+      "required": [
+        "degradation_id",
+        "region_type",
+        "degradation_type",
+        "severity",
+        "confidence",
+        "mos_impact",
+        "bbox",
+        "frame_indices",
+        "description",
+        "detector",
+        "evidence",
+        "root_cause_hypothesis"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "degradation_id": { "type": "string", "minLength": 1 },
+        "region_type": {
+          "type": "string",
+          "enum": ["face", "hair", "hand", "edge", "background", "body", "text_ui"]
+        },
+        "degradation_type": { "type": "string", "minLength": 1 },
+        "severity": {
+          "type": "string",
+          "enum": ["good", "minor", "moderate", "severe", "critical"]
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "mos_impact": { "type": "number", "maximum": 0 },
+        "bbox": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "frame_indices": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "description": { "type": "string", "minLength": 1 },
+        "detector": {
+          "type": "string",
+          "enum": ["edge_bleed", "compression_artifact"]
+        },
+        "evidence": { "$ref": "#/$defs/Evidence" },
+        "root_cause_hypothesis": { "$ref": "#/$defs/RootCauseHypothesis" },
+        "vlm_reasoning": { "type": ["object", "null"] }
+      }
+    },
+    "TraceEntry": {
+      "type": "object",
+      "required": [
+        "stage",
+        "module",
+        "timestamp_ms",
+        "duration_ms",
+        "input_summary",
+        "output_summary",
+        "decision",
+        "mode"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "type": "string",
+          "enum": [
+            "mode_select",
+            "global_scan",
+            "vlm_coarse",
+            "routing",
+            "detection",
+            "vlm_confirm",
+            "aggregation"
+          ]
+        },
+        "module": { "type": "string", "minLength": 1 },
+        "timestamp_ms": { "type": "number", "minimum": 0 },
+        "duration_ms": { "type": "number", "minimum": 0 },
+        "input_summary": { "type": "object" },
+        "output_summary": { "type": "object" },
+        "decision": { "type": "string", "minLength": 1 },
+        "mode": { "type": "string", "enum": ["fast", "deep"] }
+      }
+    },
+    "PenaltyItem": {
+      "type": "object",
+      "required": ["source", "penalty", "reason"],
+      "properties": {
+        "source": { "type": "string" },
+        "penalty": { "type": "number" },
+        "effective_penalty": { "type": "number" },
+        "decay_index": { "type": "integer", "minimum": 0 },
+        "reason": { "type": "string" }
+      }
+    },
+    "MOSBreakdown": {
+      "type": "object",
+      "required": ["base_mos", "total_penalty", "cap_applied", "penalties"],
+      "properties": {
+        "base_mos": { "type": "number" },
+        "total_penalty": { "type": "number", "maximum": 0 },
+        "cap_applied": { "type": "boolean" },
+        "cap_reason": { "type": ["string", "null"] },
+        "penalties": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PenaltyItem" }
+        }
+      }
+    },
+    "DegradationSummary": {
+      "type": "object",
+      "required": ["total_count", "by_severity", "by_detector"],
+      "properties": {
+        "total_count": { "type": "integer", "minimum": 0 },
+        "by_severity": { "type": "object" },
+        "by_detector": { "type": "object" },
+        "by_root_cause": { "type": "object" },
+        "top_issues": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 3
+        }
+      }
+    },
+    "PerformanceMetrics": {
+      "type": "object",
+      "required": ["total_ms", "global_scan_ms", "detection_ms", "aggregation_ms"],
+      "properties": {
+        "total_ms": { "type": "number", "minimum": 0 },
+        "global_scan_ms": { "type": "number", "minimum": 0 },
+        "detection_ms": { "type": "number", "minimum": 0 },
+        "aggregation_ms": { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}
