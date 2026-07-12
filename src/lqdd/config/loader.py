@@ -31,6 +31,56 @@ class EdgeBleedConfig:
 class CompressionConfig:
     blockiness_threshold: float = 1.8
     blockiness_coarse_threshold: float = 1.4
+    mild_blockiness_threshold: float = 1.02
+    texture_var_reference: float = 2400.0
+    texture_loss_threshold: float = 0.38
+    edge_block_ratio_threshold: float = 1.012
+
+
+@dataclass
+class BlurConfig:
+    texture_var_reference: float = 2400.0
+    texture_loss_threshold: float = 0.42
+    min_foreground_ratio: float = 0.05
+
+
+@dataclass
+class MosaicConfig:
+    score_threshold: float = 0.48
+    localize_threshold: float = 0.35
+
+
+@dataclass
+class BandingConfig:
+    score_threshold: float = 0.38
+    localize_threshold: float = 0.30
+
+
+@dataclass
+class BackgroundArtifactConfig:
+    blockiness_threshold: float = 1.35
+    color_cast_threshold: float = 0.18
+    min_background_ratio: float = 0.12
+
+
+@dataclass
+class HairTextureConfig:
+    highfreq_ratio_threshold: float = 0.22
+    min_hair_pixels: int = 400
+
+
+@dataclass
+class FaceArtifactConfig:
+    overexposure_ratio_threshold: float = 0.25
+    blur_laplacian_threshold: float = 85.0
+    min_face_pixels: int = 300
+
+
+@dataclass
+class HandAnomalyConfig:
+    edge_density_threshold: float = 0.14
+    finger_spread_threshold: float = 2.8
+    min_hand_pixels: int = 250
 
 
 @dataclass
@@ -73,6 +123,13 @@ class AppConfig:
     global_scan: GlobalScanConfig
     edge_bleed: EdgeBleedConfig
     compression: CompressionConfig
+    blur: BlurConfig
+    mosaic: MosaicConfig
+    banding: BandingConfig
+    background_artifact: BackgroundArtifactConfig
+    hair_texture: HairTextureConfig
+    face_artifact: FaceArtifactConfig
+    hand_anomaly: HandAnomalyConfig
     report: ReportConfig
     agent: AgentConfig
     vlm: VLMConfig
@@ -105,6 +162,13 @@ def load_config(path: Path | None = None) -> AppConfig:
         global_scan=GlobalScanConfig(),
         edge_bleed=EdgeBleedConfig(),
         compression=CompressionConfig(),
+        blur=BlurConfig(),
+        mosaic=MosaicConfig(),
+        banding=BandingConfig(),
+        background_artifact=BackgroundArtifactConfig(),
+        hair_texture=HairTextureConfig(),
+        face_artifact=FaceArtifactConfig(),
+        hand_anomaly=HandAnomalyConfig(),
         report=ReportConfig(),
         agent=AgentConfig(),
         vlm=VLMConfig(),
@@ -126,6 +190,15 @@ def load_config(path: Path | None = None) -> AppConfig:
         global_scan=_section(data.get("global_scan"), GlobalScanConfig, defaults.global_scan),
         edge_bleed=_section(data.get("edge_bleed"), EdgeBleedConfig, defaults.edge_bleed),
         compression=_section(data.get("compression"), CompressionConfig, defaults.compression),
+        blur=_section(data.get("blur"), BlurConfig, defaults.blur),
+        mosaic=_section(data.get("mosaic"), MosaicConfig, defaults.mosaic),
+        banding=_section(data.get("banding"), BandingConfig, defaults.banding),
+        background_artifact=_section(
+            data.get("background_artifact"), BackgroundArtifactConfig, defaults.background_artifact
+        ),
+        hair_texture=_section(data.get("hair_texture"), HairTextureConfig, defaults.hair_texture),
+        face_artifact=_section(data.get("face_artifact"), FaceArtifactConfig, defaults.face_artifact),
+        hand_anomaly=_section(data.get("hand_anomaly"), HandAnomalyConfig, defaults.hand_anomaly),
         report=_section(data.get("report"), ReportConfig, defaults.report),
         agent=_section(data.get("agent"), AgentConfig, defaults.agent),
         vlm=_section(data.get("vlm"), VLMConfig, defaults.vlm),

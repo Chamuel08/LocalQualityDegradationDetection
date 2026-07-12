@@ -6,7 +6,8 @@ import cv2
 import numpy as np
 
 from lqdd.config.loader import EdgeBleedConfig
-from lqdd.detectors.base import bbox_from_mask, clip_bbox
+from lqdd.detectors.base import bbox_from_mask, clip_bbox, localize_spill_bbox, localize_spill_mask
+from lqdd.report.mask_codec import encode_mask_rle
 from lqdd.models.enums import RegionType, RootCauseCategory, Severity
 from lqdd.models.inputs import GlobalScanOutput, SingleFrameInput
 from lqdd.models.report import DegradationItem, Evidence, RootCauseHypothesis
@@ -53,7 +54,14 @@ class EdgeBleedDetector:
         if severity == Severity.GOOD:
             return []
 
-        bbox = clip_bbox(bbox_from_mask(edge_mask), w, h)
+        tight = localize_spill_bbox(spill_pixels)
+        if tight is None or tight[2] == 0 or tight[3] == 0:
+            tight = bbox_from_mask(spill_pixels)
+        bbox = clip_bbox(tight, w, h)
+        spill_mask = localize_spill_mask(spill_pixels)
+        if spill_mask is None or not spill_mask.any():
+            spill_mask = spill_pixels
+        mask_rle = encode_mask_rle(spill_mask) if spill_mask.any() else None
         detail = (
             f"边缘带绿色溢出比例 {spill_ratio:.1%}，Lab ΔE 均值 {delta_e:.1f}；"
             f"超过阈值 spill≥{self.config.green_spill_minor:.0%} / ΔE≥{self.config.delta_e_spill_threshold}"
@@ -67,6 +75,7 @@ class EdgeBleedDetector:
                 confidence=min(0.95, 0.55 + spill_ratio),
                 mos_impact=mos_impact,
                 bbox=list(bbox),
+                region_mask_rle=mask_rle,
                 frame_indices=[scan_output.frame_index],
                 description="人物轮廓边缘出现绿色溢色/抠像绿边",
                 detector=self.name,
@@ -86,10 +95,19 @@ class EdgeBleedDetector:
 
     def _classify(self, spill_ratio: float, delta_e: float) -> tuple[Severity, float]:
         cfg = self.config
-        if spill_ratio < cfg.green_spill_minor and delta_e < cfg.delta_e_spill_threshold:
+        # Green spill requires measurable green excess; high edge-background ΔE alone is not green spill.
+        if spill_ratio < cfg.green_spill_minor:
             return Severity.GOOD, 0.0
-        if spill_ratio >= cfg.green_spill_critical or delta_e >= cfg.delta_e_spill_threshold * 2:
+        if spill_ratio >= cfg.green_spill_critical:
             return Severity.CRITICAL, -0.8
         if spill_ratio >= cfg.green_spill_moderate:
+            sev = Severity.MODERATE
+            impact = -0.3
+        else:
+            sev = Severity.MINOR
+            impact = -0.2
+        if delta_e >= cfg.delta_e_spill_threshold * 2:
+            return Severity.CRITICAL, min(impact, -0.8)
+        if delta_e >= cfg.delta_e_spill_threshold and sev == Severity.MINOR:
             return Severity.MODERATE, -0.3
-        return Severity.MINOR, -0.2
+        return sev, impact

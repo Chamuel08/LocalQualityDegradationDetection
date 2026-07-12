@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import time
 
+from lqdd.agent.router import default_fast_detectors
 from lqdd.config.loader import AppConfig
-from lqdd.detectors.compression.detector import CompressionArtifactDetector
-from lqdd.detectors.edge_bleed.detector import EdgeBleedDetector
+from lqdd.detectors.registry import build_detector_registry, run_detectors
 from lqdd.global_scan.scanner import GlobalScanner
 from lqdd.models.inputs import SingleFrameInput
 from lqdd.models.report import PerformanceMetrics, QualityReport, TraceEntry
@@ -20,8 +20,7 @@ class FastPipeline:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
         self.scanner = GlobalScanner(config.global_scan)
-        self.edge_detector = EdgeBleedDetector(config.edge_bleed)
-        self.compression_detector = CompressionArtifactDetector(config.compression)
+        self.registry = build_detector_registry(config)
         self.report_generator = ReportGenerator(config.report)
 
     def run(self, frame_input: SingleFrameInput) -> QualityReport:
@@ -58,24 +57,22 @@ class FastPipeline:
             )
         )
 
-        routed = ["edge_bleed", "compression_artifact"]
+        routed = default_fast_detectors()
         traces.append(
             TraceEntry(
                 stage="routing",
-                module="FixedRouter",
+                module="FastRouter",
                 timestamp_ms=scan.scan_duration_ms,
                 duration_ms=0.0,
                 input_summary={"nominations": [n.suggested_detectors for n in scan.nominations]},
                 output_summary={"detectors": routed},
-                decision="fixed_v01_route",
+                decision="full_detector_suite",
                 mode="fast",
             )
         )
 
         t_det = time.perf_counter()
-        degradations = []
-        degradations.extend(self.edge_detector.detect(frame_input, scan))
-        degradations.extend(self.compression_detector.detect(frame_input, scan))
+        degradations = run_detectors(self.registry, routed, frame_input, scan)
         det_ms = (time.perf_counter() - t_det) * 1000.0
 
         traces.append(

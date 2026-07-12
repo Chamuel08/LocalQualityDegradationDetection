@@ -20,7 +20,15 @@ htmlcov/
 
 # Plan A — local / private (not for public GitHub)
 INTERVIEW_GUIDE.md
+benchmark/INTERVIEW_GUIDE.md
+docs/FEISHU_EVALUATION.filled.md
 docs/design/
+
+# Local evaluation outputs (keep Feishu doc for portfolio results)
+benchmark/runs/
+benchmark/results.json
+benchmark/results_compression_hf.json
+benchmark/runs/feishu_export/
 
 # CatPaw-generated module specs & full system design (keep locally)
 specs/*.spec.md

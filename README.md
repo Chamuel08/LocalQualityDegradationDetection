@@ -5,26 +5,48 @@
 *Explainable local quality degradation detection for offline badcase frames*
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/code-v0.1%20MVP-green)]()
+[![Status](https://img.shields.io/badge/code-v1%20Agent-green)]()
 [![Scene](https://img.shields.io/badge/scene-badcase-orange)](specs/USE_CASE_BADCASE.md)
 
-> 输入：离线 badcase 单帧（录屏抽帧 / 手动截图）  
-> 输出：带 **bbox + 数值 Evidence + MOS 影响 + Decision Trace** 的 JSON / HTML 报告
+> 输入：离线 badcase 单帧  
+> 输出：**不规则 mask** + 数值 Evidence + MOS 影响 + Decision Trace（JSON / HTML）
+
+**完整评测效果与真实业务帧对比** → 见飞书作品集：【在此填写你的飞书文档链接】
 
 ---
 
-## Demo
+## Demo（GitHub 可复现）
 
-| 输入帧 | 检测报告（bbox + Evidence） |
-|--------|---------------------------|
-| *待补充：`examples/demo_input.png`* | *待补充：`examples/demo_report.png`* |
+| 输入帧 | 检测报告（mask 轮廓 + legend） |
+|--------|-------------------------------|
+| ![Input](examples/demo_input.png) | ![Report](examples/demo_report.png) |
+
+- 交互报告：[`examples/demo_report.html`](examples/demo_report.html)
+- 更多样例：[`examples/reports/`](examples/reports/)（绿边 / 块效应 / 模糊 / 马赛克 / 色带 / 面部 / 干净帧）
+- 可视化风格：[`examples/viz_styles/`](examples/viz_styles/)（contour_only vs contour_fill）
 
 ```bash
-python detect.py --image data/sample/frames/edge/edge_01.png --mode fast
-python detect.py --image data/sample/frames/edge/edge_01.png --mode fast --output report.html
+# 一键生成 examples/ 下所有 demo 资源
+python scripts/generate_demo_assets.py
+
+# 单张复现主 demo
+python detect.py --image data/sample/frames/edge/edge_01.png \
+  --mode fast --legacy-fixed --output examples/demo_report.html
 ```
 
-> **当前状态**：v0.1 Fast Mode MVP 已实现（固定 pipeline + CLI + 样例数据）；V1 Agent 层已实现（`--mode fast` 默认）。
+---
+
+## 仓库 vs 飞书文档
+
+| 放在 GitHub | 放在飞书文档 |
+|-------------|--------------|
+| 源代码、规格、测试 | 真实直播帧评测截图 |
+| `data/sample/` 内置小样例 | 方案 A–D 跑分与对比表 |
+| `examples/` 交互 HTML | Agent / VLM trace 实录 |
+| 评测脚本（需自备 manifest） | 个人项目背景与业务语境 |
+
+模板正文可复制 [`docs/FEISHU_EVALUATION.template.md`](docs/FEISHU_EVALUATION.template.md)。  
+本地预填版（含本次跑分，**不进 GitHub**）：`docs/FEISHU_EVALUATION.filled.md`
 
 ---
 
@@ -34,89 +56,109 @@ python detect.py --image data/sample/frames/edge/edge_01.png --mode fast --outpu
 
 | 痛点 | 现有方案不足 | 本项目 |
 |------|-------------|--------|
-| badcase 难批量分析 | BRISQUE/NIQE 无定位 | **局部**检测 + bbox |
+| badcase 难批量分析 | BRISQUE/NIQE 无定位 | **局部** mask + bbox |
 | 糊 / 绿边 / block 混在一起 | 黑箱总分 | **分类型**检测器 + Evidence |
-| block vs 生成 blur | 无法区分成因 | CompressionArtifact + root_cause |
-| UI overlay | 易误报 | text_ui mask + ignore_regions |
-| 质检复核 | 只要分数不够 | HTML + 中文 detail |
+| 质检复核 | 只要分数不够 | HTML + 中文 detail + legend |
 
-**边界**：**离线单帧**，不接 RTMP 实时流。
+**边界**：**离线单帧**，不接 RTMP 实时流；**无参考图 diff**。
 
 ---
 
 ## 做了什么（Solution）
 
-Coarse-to-Fine：Global Scan → 按需子检测器 → Report（JSON/HTML）。
+```
+GlobalScan → 9 类检测器 → [Agent: VLM 灰区] → [Judge] → Report（mask + Evidence + MOS）
+```
 
-| 版本 | 形态 |
-|------|------|
-| **v0.1 MVP** | 固定 Pipeline：GlobalScan → EdgeBleed + Compression，`--legacy-fixed` 回退 |
-| **V1**（默认） | **Agent 编排**：小模型先行 + **VLM 灰区兜底** + **LLM Judge** 整合与 Round 2 |
+| 阶段 | 检测器 | 方法概要 |
+|------|--------|----------|
+| 已有 | `edge_bleed` | 绿边 / ΔE 溢色 |
+| 已有 | `compression_artifact` | DCT 块效应 + Laplacian 纹理损失 |
+| **Phase 1** | `blur_artifact` | 主体区域 Laplacian 纹理损失 |
+| **Phase 1** | `mosaic_artifact` | 8×8 块平铺 / 马赛克 |
+| **Phase 1** | `banding_artifact` | 背景色带 / 量化台阶 |
+| **Phase 1** | `background_artifact` | 背景块效应 + 色彩漂移（独立于全图 compression） |
+| **Phase 2** | `hair_texture` | 发丝 ROI FFT 高频能量 |
+| **Phase 2** | `face_artifact` | 面部过曝 + Laplacian（可选 InsightFace 扩展） |
+| **Phase 2** | `hand_anomaly` | MediaPipe Hands 几何（可选 `[mediapipe]`） |
 
-详见 [`specs/VERSION_ROADMAP.md`](specs/VERSION_ROADMAP.md)。
-
----
-
-## 方法亮点
-
-见 [`specs/method_selection.md`](specs/method_selection.md)：FFT 头发纹理、ArcFace 面部、Lab ΔE 边缘、DCT blockiness 等。
-
----
-
-## 实现进度
-
-| 模块 | Spec | Code |
-|------|:----:|:----:|
-| Badcase 用例 | ✅ | — |
-| **v0.1** GlobalScan + EdgeBleed + Compression | ✅ | ✅ |
-| **v0.1** CLI `detect.py`（`--legacy-fixed` 回退） | ✅ | ✅ |
-| **V1** Agent + VLM 灰区 + LLM Judge | ✅ | ✅ |
-| **V1** `--mode fast` Agent 默认路径 | ✅ | ✅ |
-| 全量子检测器（face / hair / hand 等） | — | 📋 |
-
-Spec Kit：`001-v0-fast-mvp`（v0.1）· `002-v1-agent-layer`（V1 Agent）
-
----
-
-## 版本路线图
-
-| 版本 | 内容 | 文档 |
+| 版本 | 形态 | 命令 |
 |------|------|------|
-| v0.1 | 固定 pipeline，2 检测器，零外部依赖 | [`001-v0-fast-mvp/spec.md`](specs/001-v0-fast-mvp/spec.md) |
-| V1 | Agent + VLM 兜底 + LLM Judge | [`002-v1-agent-layer/spec.md`](specs/002-v1-agent-layer/spec.md) |
-| V2 | 视频 + 时序闪烁检测 | [`VERSION_ROADMAP.md`](specs/VERSION_ROADMAP.md) |
+| **v0.1** | 固定 Pipeline（全量 9 检测器） | `detect.py --legacy-fixed` |
+| **V1**（默认） | Agent 提名路由 + VLM + Judge | `detect.py --mode fast` |
+
+报告字段含 `region_mask_rle`（像素级定位）、`decision_trace`（Agent 决策链）。
 
 ---
 
 ## 快速开始
 
+### 环境
+
+- Python **3.10+**
+- 可选 V1 完整体验：[Ollama](https://ollama.com/) + `qwen2.5-vl:7b`
+
+### 安装与运行
+
 ```bash
+git clone https://github.com/Chamuel08/LocalQualityDegradationDetection.git
+cd LocalQualityDegradationDetection
+
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 cp config.example.yaml config.yaml
-python scripts/generate_synthetic_samples.py
-python detect.py --image data/sample/frames/edge/edge_01.png --mode fast
-python detect.py --image data/sample/frames/edge/edge_01.png --mode fast --legacy-fixed
+python scripts/generate_synthetic_samples.py   # 生成 data/sample/
+python scripts/generate_demo_assets.py         # 生成 examples/
+
+python detect.py \
+  --image data/sample/frames/block/block_01.png \
+  --mode fast --legacy-fixed \
+  --output report.html
+```
+
+### 测试
+
+```bash
 pytest tests/ -m "not vlm" -q
 ```
 
-可选：`pip install -e ".[full]"` 安装 MediaPipe（Python 3.10–3.12 推荐）；未安装时自动使用 GrabCut 回退分割。
+### 可选：自备 manifest 批量评测
+
+```bash
+python benchmark/run_eval.py --manifest /path/to/manifest.json
+```
+
+结果写入 `benchmark/results.json`（已 gitignore，不提交）。
 
 ---
 
-## 文档（公开集）
+## V1 Agent 说明
+
+| 场景 | Ollama | 行为 |
+|------|--------|------|
+| CI / 无 GPU | 不需要 | VLM/Judge 优雅降级，`decision_trace` 记录 skip |
+| 完整 V1 | 需要 | 灰区 VLM Confirm + Judge Round 2 |
+
+```bash
+ollama pull qwen2.5-vl:7b
+python detect.py --image data/sample/frames/edge/edge_01.png --mode fast --output report.html
+```
+
+---
+
+## 文档
 
 | 文档 | 内容 |
 |------|------|
-| [`specs/VERSION_ROADMAP.md`](specs/VERSION_ROADMAP.md) | v0.1 / V1 / V2 边界与 Agent 层 |
-| [`specs/USE_CASE_BADCASE.md`](specs/USE_CASE_BADCASE.md) | Badcase 工作流与 overlay 规则 |
-| [`specs/method_selection.md`](specs/method_selection.md) | 子检测器算法选型 |
-| [`specs/001-v0-fast-mvp/`](specs/001-v0-fast-mvp/) | v0.1 feature spec、plan、contracts |
-| [`specs/002-v1-agent-layer/`](specs/002-v1-agent-layer/) | V1 Agent feature spec、plan、contracts |
+| [`docs/PORTFOLIO.md`](docs/PORTFOLIO.md) | GitHub 公开范围与面试官体验路径 |
+| [`docs/FEISHU_SCREENSHOTS.md`](docs/FEISHU_SCREENSHOTS.md) | 飞书粘贴素材清单（本地 `feishu_export/`） |
+| `docs/FEISHU_EVALUATION.filled.md` | 预填飞书正文（本地，gitignore） |
+| [`specs/USE_CASE_BADCASE.md`](specs/USE_CASE_BADCASE.md) | Badcase 用例 |
+| [`specs/VERSION_ROADMAP.md`](specs/VERSION_ROADMAP.md) | v0.1 / V1 / V2 |
 
 ---
 
 ## License
 
-Licensed under the [Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE) for third-party dependency attributions.
+[Apache License 2.0](LICENSE)

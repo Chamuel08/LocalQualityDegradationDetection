@@ -147,6 +147,10 @@
           "maxItems": 4,
           "items": { "type": "integer", "minimum": 0 }
         },
+        "region_mask_rle": {
+          "type": ["string", "null"],
+          "description": "Row-major RLE bool mask: H,W:run1,run0,..."
+        },
         "frame_indices": {
           "type": "array",
           "items": { "type": "integer", "minimum": 0 }
@@ -154,7 +158,17 @@
         "description": { "type": "string", "minLength": 1 },
         "detector": {
           "type": "string",
-          "enum": ["edge_bleed", "compression_artifact"]
+          "enum": [
+            "edge_bleed",
+            "compression_artifact",
+            "blur_artifact",
+            "mosaic_artifact",
+            "banding_artifact",
+            "background_artifact",
+            "hair_texture",
+            "face_artifact",
+            "hand_anomaly"
+          ]
         },
         "evidence": { "$ref": "#/$defs/Evidence" },
         "root_cause_hypothesis": { "$ref": "#/$defs/RootCauseHypothesis" },

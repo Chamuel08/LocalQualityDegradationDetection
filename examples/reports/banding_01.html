@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <title>画质报告 rpt_48d2a4bef3a6</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; font-size: 0.9rem; }
+    pre { background: #f6f8fa; padding: 1rem; overflow: auto; }
+    .hint { color: #666; font-size: 0.9rem; }
+    .legend { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0.75rem 0 1rem; font-size: 0.9rem; }
+    .legend-item { display: inline-flex; align-items: center; gap: 0.35rem; }
+    .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,.15); }
+    .legend-empty { color: #888; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <h1>局部画质劣化检测报告</h1>
+  <p><strong>MOS</strong>: 3.625 &nbsp;
+     <strong>严重度</strong>: moderate</p>
+  
+  <h2>帧预览（局部 mask）</h2>
+  <p class="hint">不规则区域轮廓来自检测器输出的 <code>region_mask_rle</code>，非矩形外框。</p>
+  <img alt="frame preview" src="data:image/png;base64,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" style="max-width:100%;"/>
+  <div class="legend"><span class="legend-item"><span class="swatch" style="background:#ff8c00"></span>压缩伪影 / 纹理损失（moderate）</span><span class="legend-item"><span class="swatch" style="background:#2878b4"></span>区域性模糊（moderate）</span><span class="legend-item"><span class="swatch" style="background:#b450c8"></span>马赛克 / 像素块（moderate）</span><span class="legend-item"><span class="swatch" style="background:#50b450"></span>色带伪影（minor）</span><span class="legend-item"><span class="swatch" style="background:#5064dc"></span>面部模糊（minor）</span></div>
+  
+  <h2>劣化列表</h2>
+  <table>
+    <thead><tr>
+      <th>类型</th><th>严重度</th><th>置信度</th><th>bbox</th><th>mask</th>
+      <th>method</th><th>metric</th><th>value</th><th>threshold</th><th>detail</th>
+    </tr></thead>
+    <tbody><tr><td>blockiness</td><td>moderate</td><td>0.87</td><td><code>102,82,117,117</code></td><td>有</td><td>laplacian_texture_loss</td><td>texture_loss_score</td><td>0.9841</td><td>0.38</td><td>全图高频纹理损失 98.4%（Laplacian 方差相对参考 2400）；超过阈值 38%</td></tr>
+<tr><td>blur</td><td>moderate</td><td>0.74</td><td><code>113,92,95,97</code></td><td>有</td><td>laplacian_regional_blur</td><td>texture_loss_score</td><td>0.8554</td><td>0.42</td><td>主体区域高频纹理损失 85.5%（Laplacian var≈347）；超过阈值 42%</td></tr>
+<tr><td>mosaic</td><td>moderate</td><td>0.81</td><td><code>102,82,117,117</code></td><td>有</td><td>block_flatness_mosaic</td><td>mosaic_score</td><td>0.9452</td><td>0.48</td><td>检测到马赛克/像素块平铺特征，score=0.95 ≥ 0.48</td></tr>
+<tr><td>banding</td><td>minor</td><td>0.63</td><td><code>0,0,144,240</code></td><td>有</td><td>gradient_quantization_banding</td><td>banding_score</td><td>0.5111</td><td>0.38</td><td>背景区域出现色带/量化台阶，banding_score=0.51 ≥ 0.38</td></tr>
+<tr><td>face_blur</td><td>minor</td><td>0.68</td><td><code>134,99,53,40</code></td><td>有</td><td>face_roi_exposure_laplacian</td><td>face_laplacian_var</td><td>45.6496</td><td>85.0</td><td>面部 Laplacian 方差 46 ≤ 85（偏糊）</td></tr></tbody>
+  </table>
+  <h2>完整 JSON</h2>
+  <pre>{
+  &quot;report_id&quot;: &quot;rpt_48d2a4bef3a6&quot;,
+  &quot;video_id&quot;: &quot;banding_01&quot;,
+  &quot;mode&quot;: &quot;fast&quot;,
+  &quot;frame_index&quot;: 0,
+  &quot;report_timestamp&quot;: &quot;2026-07-12T01:52:14.642135+00:00&quot;,
+  &quot;system_version&quot;: &quot;0.1.0&quot;,
+  &quot;overall_mos&quot;: 3.625,
+  &quot;severity&quot;: &quot;moderate&quot;,
+  &quot;degradations&quot;: [
+    {
+      &quot;degradation_id&quot;: &quot;deg_cfaec07c&quot;,
+      &quot;region_type&quot;: &quot;background&quot;,
+      &quot;degradation_type&quot;: &quot;blockiness&quot;,
+      &quot;severity&quot;: &quot;moderate&quot;,
+      &quot;confidence&quot;: 0.8710209798177083,
+      &quot;mos_impact&quot;: -0.35,
+      &quot;bbox&quot;: [
+        102,
+        82,
+        117,
+        117
+      ],
+      &quot;region_mask_rle&quot;: &quot;240,320:26400,1,310,19,297,27,289,35,282,41,276,47,271,51,267,55,263,59,260,61,257,65,254,67,251,71,248,73,246,75,244,77,242,79,240,81,238,83,236,85,234,87,232,89,230,91,228,93,226,95,225,95,224,97,222,99,221,99,220,101,218,103,217,103,216,105,215,105,214,107,213,107,212,109,211,109,211,109,210,111,209,111,209,111,208,113,207,113,207,113,207,113,206,115,205,115,205,115,205,115,205,115,205,115,205,115,205,115,205,115,204,117,203,117,203,117,203,117,203,117,203,117,203,117,204,115,205,115,205,115,205,115,205,115,205,115,205,115,205,115,205,115,206,113,207,113,207,113,207,113,208,111,209,111,209,111,210,28,53,28,211,26,57,26,211,25,59,25,212,24,59,24,213,24,59,24,214,24,57,24,215,25,55,25,216,25,53,25,217,26,51,26,218,26,49,26,220,26,47,26,221,28,43,28,222,28,41,28,224,29,37,29,225,30,35,30,226,31,31,31,228,33,25,33,230,35,19,35,232,43,1,43,234,85,236,83,238,81,240,79,242,77,244,75,246,73,248,71,251,67,254,65,257,61,260,59,263,55,267,51,271,47,276,41,282,35,289,27,297,19,310,1,13279&quot;,
+      &quot;frame_indices&quot;: [
+        0
+      ],
+      &quot;description&quot;: &quot;画面出现块状压缩伪影/高频纹理损失&quot;,
+      &quot;detector&quot;: &quot;compression_artifact&quot;,
+      &quot;evidence&quot;: {
+        &quot;method&quot;: &quot;laplacian_texture_loss&quot;,
+        &quot;metric&quot;: &quot;texture_loss_score&quot;,
+        &quot;value&quot;: 0.9841,
+        &quot;threshold&quot;: 0.38,
+        &quot;detail&quot;: &quot;全图高频纹理损失 98.4%（Laplacian 方差相对参考 2400）；超过阈值 38%&quot;,
+        &quot;attention_map&quot;: null
+      },
+      &quot;root_cause_hypothesis&quot;: {
+        &quot;cause&quot;: &quot;encoding_loss&quot;,
+        &quot;confidence&quot;: 0.63122517578125
+      },
+      &quot;vlm_reasoning&quot;: null
+    },
+    {
+      &quot;degradation_id&quot;: &quot;deg_d006d946&quot;,
+      &quot;region_type&quot;: &quot;body&quot;,
+      &quot;degradation_type&quot;: &quot;blur&quot;,
+      &quot;severity&quot;: &quot;moderate&quot;,
+      &quot;confidence&quot;: 0.74,
+      &quot;mos_impact&quot;: -0.32,
+      &quot;bbox&quot;: [
+        113,
+        92,
+        95,
+        97
+      ],
+      &quot;region_mask_rle&quot;: &quot;240,320:29600,1,310,19,297,27,290,33,284,39,279,43,275,47,272,49,269,53,266,55,263,59,260,61,258,63,256,65,254,67,252,69,250,71,248,73,246,75,244,77,243,77,242,79,240,81,239,81,238,83,236,85,235,85,234,87,233,87,232,89,231,89,231,89,230,91,229,91,229,91,228,93,227,93,227,93,227,93,226,95,225,95,225,95,225,95,225,95,225,95,225,95,225,95,225,95,225,95,225,95,225,95,225,95,225,95,225,95,225,95,225,95,225,95,225,95,226,93,227,93,227,93,227,93,228,91,229,91,229,91,230,89,231,89,231,89,232,87,233,87,234,85,235,85,236,83,238,81,239,81,240,79,242,77,243,77,244,75,246,73,248,71,250,69,252,67,254,65,256,63,258,61,260,59,263,55,266,53,269,49,272,47,275,43,279,39,284,33,290,27,297,19,310,1,16479&quot;,
+      &quot;frame_indices&quot;: [
+        0
+      ],
+      &quot;description&quot;: &quot;主体区域出现区域性模糊/纹理损失&quot;,
+      &quot;detector&quot;: &quot;blur_artifact&quot;,
+      &quot;evidence&quot;: {
+        &quot;method&quot;: &quot;laplacian_regional_blur&quot;,
+        &quot;metric&quot;: &quot;texture_loss_score&quot;,
+        &quot;value&quot;: 0.8554,
+        &quot;threshold&quot;: 0.42,
+        &quot;detail&quot;: &quot;主体区域高频纹理损失 85.5%（Laplacian var≈347）；超过阈值 42%&quot;,
+        &quot;attention_map&quot;: null
+      },
+      &quot;root_cause_hypothesis&quot;: {
+        &quot;cause&quot;: &quot;encoding_loss&quot;,
+        &quot;confidence&quot;: 0.6023832217839881
+      },
+      &quot;vlm_reasoning&quot;: null
+    },
+    {
+      &quot;degradation_id&quot;: &quot;deg_389e0ed0&quot;,
+      &quot;region_type&quot;: &quot;body&quot;,
+      &quot;degradation_type&quot;: &quot;mosaic&quot;,
+      &quot;severity&quot;: &quot;moderate&quot;,
+      &quot;confidence&quot;: 0.8126022689541181,
+      &quot;mos_impact&quot;: -0.35,
+      &quot;bbox&quot;: [
+        102,
+        82,
+        117,
+        117
+      ],
+      &quot;region_mask_rle&quot;: &quot;240,320:26400,1,310,19,297,27,289,35,282,41,276,47,271,51,267,55,263,59,260,61,257,65,254,67,251,71,248,73,246,75,244,77,242,79,240,81,238,83,236,85,234,87,232,89,230,91,228,93,226,95,225,95,224,97,222,99,221,99,220,101,218,103,217,103,216,105,215,105,214,107,213,107,212,109,211,109,211,109,210,111,209,111,209,111,208,113,207,113,207,113,207,113,206,115,205,115,205,115,205,115,205,115,205,115,205,115,205,115,205,115,204,117,203,117,203,117,203,117,203,117,203,117,203,117,204,115,205,115,205,115,205,115,205,115,205,115,205,115,205,115,205,115,206,113,207,113,207,113,207,113,208,111,209,111,209,111,210,28,53,28,211,26,57,26,211,25,59,25,212,24,59,24,213,24,59,24,214,24,57,24,215,25,55,25,216,25,53,25,217,26,51,26,218,26,49,26,220,26,47,26,221,28,43,28,222,28,41,28,224,29,37,29,225,30,35,30,226,31,31,31,228,33,25,33,230,35,19,35,232,43,1,43,234,85,236,83,238,81,240,79,242,77,244,75,246,73,248,71,251,67,254,65,257,61,260,59,263,55,267,51,271,47,276,41,282,35,289,27,297,19,310,1,13279&quot;,
+      &quot;frame_indices&quot;: [
+        0
+      ],
+      &quot;description&quot;: &quot;画面出现马赛克或过度像素化块效应&quot;,
+      &quot;detector&quot;: &quot;mosaic_artifact&quot;,
+      &quot;evidence&quot;: {
+        &quot;method&quot;: &quot;block_flatness_mosaic&quot;,
+        &quot;metric&quot;: &quot;mosaic_score&quot;,
+        &quot;value&quot;: 0.9452,
+        &quot;threshold&quot;: 0.48,
+        &quot;detail&quot;: &quot;检测到马赛克/像素块平铺特征，score=0.95 ≥ 0.48&quot;,
+        &quot;attention_map&quot;: null
+      },
+      &quot;root_cause_hypothesis&quot;: {
+        &quot;cause&quot;: &quot;encoding_loss&quot;,
+        &quot;confidence&quot;: 0.6128215882678827
+      },
+      &quot;vlm_reasoning&quot;: null
+    },
+    {
+      &quot;degradation_id&quot;: &quot;deg_176dd0b6&quot;,
+      &quot;region_type&quot;: &quot;background&quot;,
+      &quot;degradation_type&quot;: &quot;banding&quot;,
+      &quot;severity&quot;: &quot;minor&quot;,
+      &quot;confidence&quot;: 0.628652719665272,
+      &quot;mos_impact&quot;: -0.2,
+      &quot;bbox&quot;: [
+        0,
+        0,
+        144,
+        240
+      ],
+      &quot;region_mask_rle&quot;: &quot;240,320:144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,144,176,143,177,141,179,99,221,97,223,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224,96,224&quot;,
+      &quot;frame_indices&quot;: [
+        0
+      ],
+      &quot;description&quot;: &quot;背景平滑区域出现色带伪影&quot;,
+      &quot;detector&quot;: &quot;banding_artifact&quot;,
+      &quot;evidence&quot;: {
+        &quot;method&quot;: &quot;gradient_quantization_banding&quot;,
+        &quot;metric&quot;: &quot;banding_score&quot;,
+        &quot;value&quot;: 0.5111,
+        &quot;threshold&quot;: 0.38,
+        &quot;detail&quot;: &quot;背景区域出现色带/量化台阶，banding_score=0.51 ≥ 0.38&quot;,
+        &quot;attention_map&quot;: null
+      },
+      &quot;root_cause_hypothesis&quot;: {
+        &quot;cause&quot;: &quot;encoding_loss&quot;,
+        &quot;confidence&quot;: 0.49588075313807534
+      },
+      &quot;vlm_reasoning&quot;: null
+    },
+    {
+      &quot;degradation_id&quot;: &quot;deg_47d7e757&quot;,
+      &quot;region_type&quot;: &quot;face&quot;,
+      &quot;degradation_type&quot;: &quot;face_blur&quot;,
+      &quot;severity&quot;: &quot;minor&quot;,
+      &quot;confidence&quot;: 0.68,
+      &quot;mos_impact&quot;: -0.22,
+      &quot;bbox&quot;: [
+        134,
+        99,
+        53,
+        40
+      ],
+      &quot;region_mask_rle&quot;: &quot;240,320:31817,47,271,51,268,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,267,53,268,51,271,47,32456&quot;,
+      &quot;frame_indices&quot;: [
+        0
+      ],
+      &quot;description&quot;: &quot;面部区域出现过曝或细节损失&quot;,
+      &quot;detector&quot;: &quot;face_artifact&quot;,
+      &quot;evidence&quot;: {
+        &quot;method&quot;: &quot;face_roi_exposure_laplacian&quot;,
+        &quot;metric&quot;: &quot;face_laplacian_var&quot;,
+        &quot;value&quot;: 45.6496,
+        &quot;threshold&quot;: 85.0,
+        &quot;detail&quot;: &quot;面部 Laplacian 方差 46 ≤ 85（偏糊）&quot;,
+        &quot;attention_map&quot;: null
+      },
+      &quot;root_cause_hypothesis&quot;: {
+        &quot;cause&quot;: &quot;generation_artifact&quot;,
+        &quot;confidence&quot;: 0.45
+      },
+      &quot;vlm_reasoning&quot;: null
+    }
+  ],
+  &quot;decision_trace&quot;: [
+    {
+      &quot;stage&quot;: &quot;mode_select&quot;,
+      &quot;module&quot;: &quot;FastPipeline&quot;,
+      &quot;timestamp_ms&quot;: 0.0,
+      &quot;duration_ms&quot;: 0.0,
+      &quot;input_summary&quot;: {
+        &quot;requested_mode&quot;: &quot;fast&quot;
+      },
+      &quot;output_summary&quot;: {
+        &quot;selected_mode&quot;: &quot;fast&quot;
+      },
+      &quot;decision&quot;: &quot;mode_fast&quot;,
+      &quot;mode&quot;: &quot;fast&quot;
+    },
+    {
+      &quot;stage&quot;: &quot;global_scan&quot;,
+      &quot;module&quot;: &quot;GlobalScanner&quot;,
+      &quot;timestamp_ms&quot;: 0.0,
+      &quot;duration_ms&quot;: 98.87845901539549,
+      &quot;input_summary&quot;: {
+        &quot;frame_id&quot;: &quot;banding_01&quot;,
+        &quot;shape&quot;: [
+          240,
+          320,
+          3
+        ]
+      },
+      &quot;output_summary&quot;: {
+        &quot;nominations&quot;: 6,
+        &quot;global_quality_score&quot;: 0.0763971875
+      },
+      &quot;decision&quot;: &quot;scan_complete&quot;,
+      &quot;mode&quot;: &quot;fast&quot;
+    },
+    {
+      &quot;stage&quot;: &quot;routing&quot;,
+      &quot;module&quot;: &quot;FastRouter&quot;,
+      &quot;timestamp_ms&quot;: 98.87845901539549,
+      &quot;duration_ms&quot;: 0.0,
+      &quot;input_summary&quot;: {
+        &quot;nominations&quot;: [
+          [
+            &quot;edge_bleed&quot;
+          ],
+          [
+            &quot;compression_artifact&quot;,
+            &quot;background_artifact&quot;,
+            &quot;banding_artifact&quot;
+          ],
+          [
+            &quot;mosaic_artifact&quot;,
+            &quot;compression_artifact&quot;
+          ],
+          [
+            &quot;blur_artifact&quot;,
+            &quot;compression_artifact&quot;
+          ],
+          [
+            &quot;face_artifact&quot;
+          ],
+          [
+            &quot;banding_artifact&quot;,
+            &quot;background_artifact&quot;
+          ]
+        ]
+      },
+      &quot;output_summary&quot;: {
+        &quot;detectors&quot;: [
+          &quot;edge_bleed&quot;,
+          &quot;compression_artifact&quot;,
+          &quot;blur_artifact&quot;,
+          &quot;mosaic_artifact&quot;,
+          &quot;banding_artifact&quot;,
+          &quot;background_artifact&quot;,
+          &quot;hair_texture&quot;,
+          &quot;face_artifact&quot;,
+          &quot;hand_anomaly&quot;
+        ]
+      },
+      &quot;decision&quot;: &quot;full_detector_suite&quot;,
+      &quot;mode&quot;: &quot;fast&quot;
+    },
+    {
+      &quot;stage&quot;: &quot;detection&quot;,
+      &quot;module&quot;: &quot;FastDetectors&quot;,
+      &quot;timestamp_ms&quot;: 98.87845901539549,
+      &quot;duration_ms&quot;: 31.432292016688734,
+      &quot;input_summary&quot;: {
+        &quot;detectors&quot;: [
+          &quot;edge_bleed&quot;,
+          &quot;compression_artifact&quot;,
+          &quot;blur_artifact&quot;,
+          &quot;mosaic_artifact&quot;,
+          &quot;banding_artifact&quot;,
+          &quot;background_artifact&quot;,
+          &quot;hair_texture&quot;,
+          &quot;face_artifact&quot;,
+          &quot;hand_anomaly&quot;
+        ]
+      },
+      &quot;output_summary&quot;: {
+        &quot;degradation_count&quot;: 5
+      },
+      &quot;decision&quot;: &quot;detectors_complete&quot;,
+      &quot;mode&quot;: &quot;fast&quot;
+    },
+    {
+      &quot;stage&quot;: &quot;aggregation&quot;,
+      &quot;module&quot;: &quot;ReportGenerator&quot;,
+      &quot;timestamp_ms&quot;: 130.31075103208423,
+      &quot;duration_ms&quot;: 0.00012497184798121452,
+      &quot;input_summary&quot;: {
+        &quot;degradation_count&quot;: 5
+      },
+      &quot;output_summary&quot;: {
+        &quot;severity_pending&quot;: true
+      },
+      &quot;decision&quot;: &quot;aggregate_mos&quot;,
+      &quot;mode&quot;: &quot;fast&quot;
+    }
+  ],
+  &quot;performance&quot;: {
+    &quot;total_ms&quot;: 130.33308397280052,
+    &quot;global_scan_ms&quot;: 98.87845901539549,
+    &quot;detection_ms&quot;: 31.432292016688734,
+    &quot;aggregation_ms&quot;: 0.00012497184798121452,
+    &quot;vlm_ms&quot;: 0.0,
+    &quot;judge_ms&quot;: 0.0
+  },
+  &quot;vlm_reasoning_summary&quot;: null,
+  &quot;mos_breakdown&quot;: {
+    &quot;base_mos&quot;: 4.5,
+    &quot;total_penalty&quot;: -0.8753,
+    &quot;cap_applied&quot;: false,
+    &quot;cap_reason&quot;: null,
+    &quot;penalties&quot;: [
+      {
+        &quot;source&quot;: &quot;deg_cfaec07c&quot;,
+        &quot;penalty&quot;: -0.35,
+        &quot;effective_penalty&quot;: -0.35,
+        &quot;decay_index&quot;: 0,
+        &quot;reason&quot;: &quot;画面出现块状压缩伪影/高频纹理损失&quot;
+      },
+      {
+        &quot;source&quot;: &quot;deg_389e0ed0&quot;,
+        &quot;penalty&quot;: -0.35,
+        &quot;effective_penalty&quot;: -0.245,
+        &quot;decay_index&quot;: 1,
+        &quot;reason&quot;: &quot;画面出现马赛克或过度像素化块效应&quot;
+      },
+      {
+        &quot;source&quot;: &quot;deg_d006d946&quot;,
+        &quot;penalty&quot;: -0.32,
+        &quot;effective_penalty&quot;: -0.1568,
+        &quot;decay_index&quot;: 2,
+        &quot;reason&quot;: &quot;主体区域出现区域性模糊/纹理损失&quot;
+      },
+      {
+        &quot;source&quot;: &quot;deg_47d7e757&quot;,
+        &quot;penalty&quot;: -0.22,
+        &quot;effective_penalty&quot;: -0.0755,
+        &quot;decay_index&quot;: 3,
+        &quot;reason&quot;: &quot;面部区域出现过曝或细节损失&quot;
+      },
+      {
+        &quot;source&quot;: &quot;deg_176dd0b6&quot;,
+        &quot;penalty&quot;: -0.2,
+        &quot;effective_penalty&quot;: -0.048,
+        &quot;decay_index&quot;: 4,
+        &quot;reason&quot;: &quot;背景平滑区域出现色带伪影&quot;
+      }
+    ]
+  },
+  &quot;degradation_summary&quot;: {
+    &quot;total_count&quot;: 5,
+    &quot;by_severity&quot;: {
+      &quot;moderate&quot;: 3,
+      &quot;minor&quot;: 2
+    },
+    &quot;by_detector&quot;: {
+      &quot;compression_artifact&quot;: 1,
+      &quot;blur_artifact&quot;: 1,
+      &quot;mosaic_artifact&quot;: 1,
+      &quot;banding_artifact&quot;: 1,
+      &quot;face_artifact&quot;: 1
+    },
+    &quot;by_root_cause&quot;: {
+      &quot;encoding_loss&quot;: 4,
+      &quot;generation_artifact&quot;: 1
+    },
+    &quot;top_issues&quot;: [
+      &quot;画面出现块状压缩伪影/高频纹理损失&quot;,
+      &quot;画面出现马赛克或过度像素化块效应&quot;,
+      &quot;主体区域出现区域性模糊/纹理损失&quot;
+    ]
+  }
+}</pre>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "overall_mos": 3.417,
+  "degradation_count": 3,
+  "degradations": [
+    {
+      "type": "green_spill",
+      "severity": "critical",
+      "has_mask": true,
+      "detail": "边缘带绿色溢出比例 46.4%，Lab ΔE 均值 74.1；超过阈值 spill≥5% / ΔE≥10.0"
+    },
+    {
+      "type": "blockiness",
+      "severity": "minor",
+      "has_mask": true,
+      "detail": "全图高频纹理损失 43.8%（Laplacian 方差相对参考 2400）；超过阈值 38%"
+    },
+    {
+      "type": "blur",
+      "severity": "minor",
+      "has_mask": true,
+      "detail": "主体区域高频纹理损失 43.0%（Laplacian var≈1369）；超过阈值 42%"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+from __future__ import annotations
+
+import cv2
+import numpy as np
+
+from lqdd.config.loader import HairTextureConfig
+from lqdd.detectors.base import (
+    bbox_from_mask,
+    clip_bbox,
+    fft_highfreq_ratio,
+    foreground_mask_from_scan,
+    hair_region_mask,
+    mask_from_heatmap,
+)
+from lqdd.detectors.helpers import make_degradation_item
+from lqdd.models.enums import RegionType, RootCauseCategory, Severity
+from lqdd.models.inputs import GlobalScanOutput, SingleFrameInput
+
+
+class HairTextureDetector:
+    name = "hair_texture"
+
+    def __init__(self, config: HairTextureConfig) -> None:
+        self.config = config
+
+    def detect(
+        self,
+        frame_input: SingleFrameInput,
+        scan_output: GlobalScanOutput,
+    ) -> list:
+        frame = frame_input.frame
+        h, w = frame.shape[:2]
+        fg = foreground_mask_from_scan(scan_output, h, w)
+        hair = hair_region_mask(fg, h, w)
+        if hair.sum() < self.config.min_hair_pixels:
+            return []
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        ys, xs = np.where(hair)
+        y0, y1 = int(ys.min()), int(ys.max()) + 1
+        x0, x1 = int(xs.min()), int(xs.max()) + 1
+        crop = gray[y0:y1, x0:x1]
+        ratio = fft_highfreq_ratio(crop)
+        loss = float(np.clip(1.0 - ratio / max(self.config.highfreq_ratio_threshold, 1e-3), 0, 1))
+        if ratio >= self.config.highfreq_ratio_threshold:
+            return []
+
+        heat = np.zeros((h, w), dtype=np.float32)
+        heat[y0:y1, x0:x1] = loss
+        region_mask = mask_from_heatmap(heat, threshold=0.25, roi_mask=hair, min_area=200)
+        bbox = clip_bbox(bbox_from_mask(region_mask) if region_mask is not None else (x0, y0, x1 - x0, y1 - y0), w, h)
+
+        return [
+            make_degradation_item(
+                detector=self.name,
+                degradation_type="hair_texture_loss",
+                region_type=RegionType.HAIR,
+                severity=Severity.MINOR.value,
+                confidence=min(0.84, 0.58 + loss * 0.35),
+                mos_impact=-0.2,
+                bbox=bbox,
+                region_mask=region_mask,
+                method="fft_highfreq_hair",
+                metric="highfreq_ratio",
+                value=ratio,
+                threshold=self.config.highfreq_ratio_threshold,
+                detail=(
+                    f"发丝区域 FFT 高频能量比 {ratio:.2f} 低于阈值 {self.config.highfreq_ratio_threshold}；"
+                    f"可能存在发丝糊化/纹理损失"
+                ),
+                description="头发区域高频纹理不足或糊化",
+                cause=RootCauseCategory.GENERATION_ARTIFACT,
+                frame_index=scan_output.frame_index,
+            )
+        ]

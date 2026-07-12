@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 from lqdd.config.loader import AgentConfig
+from lqdd.detectors.registry import ALL_DETECTOR_NAMES, CORE_DETECTOR_NAMES
 from lqdd.models.agent import AgentContext, RoutingDecision
 from lqdd.models.enums import RegionType
 from lqdd.models.inputs import GlobalScanOutput
 
 DETECTOR_MAP = {
     int(RegionType.EDGE): "edge_bleed",
-    int(RegionType.BACKGROUND): "compression_artifact",
+    int(RegionType.BACKGROUND): "background_artifact",
+    int(RegionType.FACE): "face_artifact",
+    int(RegionType.HAIR): "hair_texture",
+    int(RegionType.HAND): "hand_anomaly",
+    int(RegionType.BODY): "blur_artifact",
 }
 
 
@@ -27,7 +32,7 @@ def route_nominations(scan: GlobalScanOutput, cfg: AgentConfig, ctx: AgentContex
     for nom in scan.nominations:
         detector = None
         for d in nom.suggested_detectors:
-            if d in ("edge_bleed", "compression_artifact"):
+            if d in ALL_DETECTOR_NAMES:
                 detector = d
                 break
         if not detector:
@@ -63,7 +68,7 @@ def route_nominations(scan: GlobalScanOutput, cfg: AgentConfig, ctx: AgentContex
                 dispatched.append(detector)
 
     if not dispatched:
-        dispatched = ["edge_bleed", "compression_artifact"]
+        dispatched = list(ALL_DETECTOR_NAMES)
 
     ctx.routing_decisions = decisions
     ctx.dispatched_detectors = dispatched
@@ -72,3 +77,11 @@ def route_nominations(scan: GlobalScanOutput, cfg: AgentConfig, ctx: AgentContex
 
 def is_grey_confidence(confidence: float, cfg: AgentConfig) -> bool:
     return cfg.grey_zone_lower <= confidence < cfg.grey_zone_upper
+
+
+def default_fast_detectors() -> list[str]:
+    return list(ALL_DETECTOR_NAMES)
+
+
+def legacy_core_detectors() -> list[str]:
+    return list(CORE_DETECTOR_NAMES)

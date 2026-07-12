@@ -8,8 +8,7 @@ from lqdd.agent.context import create_context
 from lqdd.agent.judge_client import MockJudgeClient, OllamaJudgeClient, RuleBasedJudgeClient, run_judge
 from lqdd.agent.router import route_nominations
 from lqdd.config.loader import AppConfig
-from lqdd.detectors.compression.detector import CompressionArtifactDetector
-from lqdd.detectors.edge_bleed.detector import EdgeBleedDetector
+from lqdd.detectors.registry import build_detector_registry, run_detectors
 from lqdd.global_scan.scanner import GlobalScanner
 from lqdd.models.agent import AgentMeta, AgentContext
 from lqdd.models.inputs import SingleFrameInput
@@ -37,8 +36,7 @@ class AgentOrchestrator:
     ) -> None:
         self.config = config
         self.scanner = GlobalScanner(config.global_scan)
-        self.edge = EdgeBleedDetector(config.edge_bleed)
-        self.compression = CompressionArtifactDetector(config.compression)
+        self.registry = build_detector_registry(config)
         self.reporter = ReportGenerator(config.report)
         self._vlm_client = vlm_client
         self._judge_client = judge_client
@@ -95,15 +93,7 @@ class AgentOrchestrator:
         )
 
         t_det = time.perf_counter()
-        degradations = []
-        detectors = {
-            "edge_bleed": self.edge,
-            "compression_artifact": self.compression,
-        }
-        for name in dispatched:
-            det = detectors.get(name)
-            if det:
-                degradations.extend(det.detect(frame_input, scan))
+        degradations = run_detectors(self.registry, dispatched, frame_input, scan)
         det_ms = (time.perf_counter() - t_det) * 1000.0
         ctx.preliminary_degradations = degradations
 

@@ -36,6 +36,7 @@ class DegradationItem:
     detector: str
     evidence: Evidence
     root_cause_hypothesis: RootCauseHypothesis
+    region_mask_rle: str | None = None
     vlm_reasoning: dict[str, Any] | None = None
 
 
@@ -121,6 +122,7 @@ def degradation_to_dict(d: DegradationItem) -> dict[str, Any]:
         "confidence": d.confidence,
         "mos_impact": d.mos_impact,
         "bbox": d.bbox,
+        "region_mask_rle": d.region_mask_rle,
         "frame_indices": d.frame_indices,
         "description": d.description,
         "detector": d.detector,

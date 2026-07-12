@@ -15,7 +15,9 @@ def _blocky_frame() -> np.ndarray:
 def test_compression_detects_blockiness() -> None:
     frame = _blocky_frame()
     h, w = frame.shape[:2]
-    detector = CompressionArtifactDetector(CompressionConfig(blockiness_coarse_threshold=1.0))
+    detector = CompressionArtifactDetector(
+        CompressionConfig(blockiness_coarse_threshold=1.0, mild_blockiness_threshold=0.9)
+    )
     scan = GlobalScanOutput(
         frame_index=0,
         segmentation_map=np.zeros((h, w), dtype=np.uint8),
@@ -31,3 +33,29 @@ def test_compression_detects_blockiness() -> None:
     assert items[0].detector == "compression_artifact"
     assert items[0].evidence.metric == "blockiness_score"
     assert items[0].mos_impact < 0
+
+
+def test_compression_detects_texture_loss() -> None:
+    import cv2
+
+    blurred = cv2.GaussianBlur(
+        np.random.default_rng(1).integers(0, 255, (240, 135, 3), dtype=np.uint8),
+        (0, 0),
+        sigmaX=6.0,
+    )
+    h, w = blurred.shape[:2]
+    detector = CompressionArtifactDetector(
+        CompressionConfig(texture_loss_threshold=0.35, blockiness_coarse_threshold=1.4)
+    )
+    scan = GlobalScanOutput(
+        frame_index=0,
+        segmentation_map=np.zeros((h, w), dtype=np.uint8),
+        global_quality_score=0.4,
+        is_fast_pass=False,
+        is_fast_reject=False,
+        nominations=[],
+        scan_duration_ms=1.0,
+    )
+    items = detector.detect(SingleFrameInput(frame=blurred, frame_id="blur", mode="fast"), scan)
+    assert items
+    assert items[0].evidence.metric == "texture_loss_score"
