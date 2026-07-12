@@ -218,7 +218,7 @@ def main() -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    print("\n=== 评测摘要（面试看这张表）===\n")
+    print("\n=== Evaluation Summary ===\n")
     print(f"{'方法':<20} {'block检出率':>10} {'支持类检出':>10} {'IoU@0.3':>10} {'干净误报':>10}")
     print("-" * 65)
     labels = {

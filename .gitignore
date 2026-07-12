@@ -22,12 +22,21 @@ htmlcov/
 INTERVIEW_GUIDE.md
 benchmark/INTERVIEW_GUIDE.md
 docs/FEISHU_EVALUATION.filled.md
+docs/FEISHU_EVALUATION.template.md
+docs/FEISHU_SCREENSHOTS.md
+docs/PORTFOLIO.md
 docs/design/
 
-# Local evaluation outputs (keep Feishu doc for portfolio results)
+# Generated demo outputs (regenerate locally if needed)
+examples/
+scripts/export_feishu_assets.py
+scripts/generate_demo_assets.py
+
+# Local evaluation outputs
 benchmark/runs/
 benchmark/results.json
 benchmark/results_compression_hf.json
+benchmark/results_tier0.json
 benchmark/runs/feishu_export/
 
 # CatPaw-generated module specs & full system design (keep locally)
