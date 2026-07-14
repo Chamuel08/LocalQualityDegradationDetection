@@ -1,7 +1,7 @@
 # 局部画质劣化检测 Agent — 方法选型说辞
 
 > **范围说明**：本文 **§1–7** 为 **Stage 2 子检测器**（小模型 / 规则）算法选型。  
-> **编排层**（VLM 7B 灰区兜底、LLM 1.5B Judge 自我决策）不属于子检测器，见 [`VERSION_ROADMAP.md`](VERSION_ROADMAP.md) 与 [`002-v1-agent-layer/spec.md`](002-v1-agent-layer/spec.md)。
+> **编排层**（VLM 7B 视觉确认、LLM 1.5B ReAct Agent 自主决策）不属于子检测器，见 [`VERSION_ROADMAP.md`](VERSION_ROADMAP.md) 与 [`002-v1-agent-layer/spec.md`](002-v1-agent-layer/spec.md)。
 
 ---
 

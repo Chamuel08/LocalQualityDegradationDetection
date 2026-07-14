@@ -4,6 +4,8 @@
 **Feature**: V1 Agent Layer（VLM 兜底 + LLM Judge）  
 **Sources**: [`plan.md`](plan.md), [`contracts/`](contracts/), [`VERSION_ROADMAP.md`](../VERSION_ROADMAP.md), 001 research
 
+> **演进说明（2026-07-14）**：本文为 Phase 0 历史决策记录，结论基于早期「灰区 VLM + LLM Judge + Round 2」设计。实现时编排层重构为 **ReAct Agent 循环**（LLM 自主决策）。下方 R1–Rn 的 VLM/Judge 接入结论大体仍适用（VLM Confirm 接入方式、降级策略、mock 方案不变），但「灰区硬编码触发」「Judge Round 2 两轮」部分已被 ReAct 取代，请以 [`spec.md`](spec.md) / [`data-model.md`](data-model.md) 为准。
+
 ---
 
 ## R1. VLM 服务接入（灰区 Confirm）

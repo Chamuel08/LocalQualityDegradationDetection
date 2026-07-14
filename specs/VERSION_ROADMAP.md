@@ -9,8 +9,10 @@
 本文件是 **v0.1 / V1 / V2** 能力边界的索引入口，说明：
 
 - 各版本交付什么、不交付什么
-- **编排层双模型**（VLM 7B + LLM 1.5B Judge）与子检测器（method_selection §1–7）的分工
-- badcase 批量筛图的 **V1 默认路径**
+- **编排层双模型**（VLM 7B + LLM 1.5B Agent）与子检测器（method_selection §1–7）的分工
+- badcase 批量筛图的 **V1 默认路径**（ReAct Agent）
+
+> **V1 架构演进**：V1 编排层最初设计为「灰区硬编码触发 VLM + LLM Judge 审查 + Round 2 补检」，实现时重构为 **ReAct Agent 循环**——VLM 是否调用、是否补检均由 LLM 在每一步自主决策。本文档已按 ReAct 架构更新。
 
 | 文档 | 关系 |
 |------|------|
@@ -26,11 +28,12 @@
 | 能力 | v0.1 GitHub MVP | V1 产品 | V2 |
 |------|-----------------|---------|-----|
 | 输入 | 离线 badcase 单帧 | 离线 badcase 单帧 | 视频 clip |
-| 流水线 | **固定** GlobalScan → 2 检测器 → Report | **Agent** 动态调度 + 反馈循环 | V1 + 时序 |
-| 子检测器 | edge_bleed, compression_artifact | 6 类 spatial + compression | + temporal_flicker |
-| VLM 灰区兜底 | ❌ | ✅ **必需**（Fast Mode） | ✅ |
-| LLM Judge（自我决策） | ❌ | ✅ **必需**（Round 1/2） | ✅ |
-| Deep Mode | ❌ | ✅ 可选（单条深度归因） | ✅ |
+| 流水线 | **固定** GlobalScan → 9 检测器 → Report | **ReAct Agent** 动态调度 + 反馈循环 | V1 + 时序 |
+| 子检测器 | 9 类（6/8 在 demo 上可用，见 README） | 同 v0.1（9 类） | + temporal_flicker |
+| VLM 视觉确认 | ❌ | ✅ **必需**（Fast Mode，由 LLM Agent 自主触发） | ✅ |
+| LLM Agent（自主决策） | ❌ | ✅ **必需**（ReAct 循环，Observe→Think→Act） | ✅ |
+| 独立 LLM Judge 阶段 | ❌ | ❌（已被 ReAct Agent 替代；旧 Judge 保留作降级路径） | — |
+| Deep Mode | ❌ | ❌（`--mode deep` 返回 exit 2，未实现） | ✅ |
 | 外部服务 | 零依赖 | Ollama 或 API（VLM + LLM） | 同 V1 |
 | Spec Kit feature | `001-v0-fast-mvp` | `002-v1-agent-layer` | TBD |
 
@@ -43,38 +46,43 @@
 ### v0.1 — 固定 Pipeline（无 Agent 层）
 
 ```
-GlobalScan → EdgeBleed + CompressionArtifact → ReportGenerator → JSON/HTML
+GlobalScan → 9 SubDetectors → ReportGenerator → JSON/HTML
 ```
 
 - 目的：clone 即跑、CI 友好、可复现 demo
 - 实现：`fast_pipeline.py`（`--legacy-fixed`）
+- 9 个检测器：edge_bleed / compression / blur / mosaic / banding / background / hair_texture / face_artifact / hand_anomaly（其中 `banding` 检出率偏低、`hand_anomaly` 为实验性 MVP，见 README 已知限制）
 
-### V1 Fast Mode — Agent 编排（badcase 默认）
+### V1 Fast Mode — ReAct Agent 编排（badcase 默认）
 
 ```mermaid
 flowchart TD
   input[BadcaseFrame] --> globalScan[GlobalScan]
-  globalScan --> detectors[SubDetectors]
-  detectors --> round1[Round1_Collect]
-  round1 --> llmJudge["LLM_Judge_Qwen2.5-1.5B"]
-  llmJudge -->|consistent| report[ReportGenerator]
-  llmJudge -->|grey_ROI| vlmConfirm["VLM_Confirm_Qwen2.5-VL-7B"]
-  llmJudge -->|contradiction| round2[Round2_Whitelist]
-  vlmConfirm --> round2
-  round2 --> report
+  globalScan --> router[FastRouter 派发检测器]
+  router --> detectors[9 SubDetectors CV 初检]
+  detectors --> react["ReAct Agent Loop<br/>LLM Qwen2.5-1.5B"]
+  react -->|vlm_analyze| vlm["VLM Confirm<br/>Qwen2.5-VL-7B"]
+  react -->|rerun_detector| rerun[重检某检测器]
+  react -->|dispatch_compression| disp[补检压缩伪影]
+  react -->|accept| report[ReportGenerator]
+  vlm --> react
+  rerun --> react
+  disp --> react
 ```
 
-- **批量筛图**默认路径：`detect.py --mode fast`（含 Agent，非纯 fixed pipeline）
-- 子检测器 confidence ∈ **[0.4, 0.7]** → VLM Confirm（ROI 级 badcase 兜底）
-- Round 1 结束后 → **LLM Judge** 审查全帧一致性 → 可选 Round 2（白名单动作，最多 1 轮）
+- **批量筛图**默认路径：`detect.py --mode fast`（ReAct Agent，非纯 fixed pipeline）
+- Router 仅做检测器派发（灰区也 dispatch 给 CV），**不再硬编码 VLM 路由**
+- **LLM Agent 观察 CV 全量结果后自主决策**：是否调用 VLM、是否补检，直到 `accept`
+- 最大步数 = `agent.max_rounds × 3`（默认 6 步）；单帧 VLM 调用受 `vlm.max_calls_per_frame` 限制
+- 旧 `run_judge` / Round 2 执行器保留作降级路径，主链路无独立 Judge 阶段
 
-### V1 Deep Mode — 单条深度归因（可选）
+### V1 Deep Mode — 单条深度归因（未实现）
 
 ```
 VLM 粗分（全帧）→ 按清单调度子检测器量化 → Report
 ```
 
-- CLI：`--mode deep`；失败自动 fallback Fast（见 USE_CASE §4）
+- CLI：`--mode deep` 当前返回 exit 2（stub）；计划在 V2 实现
 
 ---
 
@@ -83,22 +91,22 @@ VLM 粗分（全帧）→ 按清单调度子检测器量化 → Report
 | 组件 | 模型 | 输入 | 决策范围 | 非职责 |
 |------|------|------|----------|--------|
 | **子检测器** | 小模型 / 规则 | ROI | 数值 Evidence + confidence | 全帧整合、补检调度 |
-| **VLM Confirm** | Qwen2.5-VL-7B (Ollama/API) | ROI crop + 单子检测器 preliminary | 该 ROI 是否 degraded（L3 语义） | 全帧 MOS 聚合、open-ended 调度 |
-| **LLM Judge** | Qwen2.5-1.5B (Ollama) | 全帧 degradations + MOS + trace 摘要 | consistent / uncertain / inconsistent；Round 2 **白名单 actions** | 替代 ReportGenerator；无限制重跑 |
+| **VLM Confirm** | Qwen2.5-VL-7B (Ollama/API) | ROI crop + 单子检测器 preliminary | 该 ROI 是否 degraded（L3 语义） | 全帧 MOS 聚合、自主决定是否被调用 |
+| **LLM Agent（ReAct）** | Qwen2.5-1.5B (Ollama) | 全帧 CV degradations + MOS + 历史步骤 | 每步选择工具：`vlm_analyze` / `rerun_detector` / `dispatch_compression` / `accept` | 替代 ReportGenerator；无限制重跑 |
 | **ReportGenerator** | 无 | 合并后 degradations | MOS 公式、Schema 输出 | 自主决定是否补检 |
 
 职责边界详见 [`002-v1-agent-layer/spec.md`](002-v1-agent-layer/spec.md) 与 [`002-v1-agent-layer/plan.md`](002-v1-agent-layer/plan.md)。
 
-### LLM Judge 白名单 actions（Round 2）
+### LLM Agent 工具白名单（ReAct 每步可选）
 
 | action | 说明 |
 |--------|------|
-| `vlm_analyze` | 仅当灰区 VLM 未触发时 |
-| `rerun_detector` | 降低阈值重跑**单个**检测器 |
-| `dispatch_compression` | MOS 低且无检出时追加 compression |
-| `accept` | 确认结果，不补检 |
+| `vlm_analyze` | 对指定/未确认检测项调用 VLM 视觉确认 |
+| `rerun_detector` | 调整阈值重跑**单个**检测器（delta ∈ [-0.15, -0.05]） |
+| `dispatch_compression` | MOS 低且无 compression 检出时追加压缩伪影检测 |
+| `accept` | 接受当前结果，终止循环 |
 
-完整定义见 `002-v1-agent-layer/contracts/llm-judge.schema.json`。
+完整定义见 `002-v1-agent-layer/contracts/llm-judge.schema.json`（旧 Judge 输出，向后兼容）与 `src/lqdd/agent/prompts.py`（ReAct `AGENT_SYSTEM_PROMPT`）。
 
 ---
 
@@ -118,9 +126,10 @@ VLM 粗分（全帧）→ 按清单调度子检测器量化 → Report
 
 | 场景 | 行为 |
 |------|------|
-| VLM 不可用（Fast 灰区） | 跳过 VLM Confirm；硬阈值判定；trace 记 `vlm_skipped` |
-| LLM Judge 不可用 | 跳过 Judge 与 Round 2；直接 Report；trace 记 `judge_skipped` |
-| Deep Mode VLM 失败 | 自动 fallback Fast Mode；报告 `mode_degraded: true` |
+| VLM 不可用 | Agent 调用 `vlm_analyze` 时该工具失败，trace 记 `vlm_failed: service_unavailable`；CV 结果照常进入聚合 |
+| LLM 不可用 | Agent 降级到 `RuleBasedJudgeClient`（规则决策）；再不可用则直接 `accept` |
+| VLM 调用达上限 | `vlm_analyze` 跳过，trace 记 `vlm_skipped: quota_exceeded` |
+| Deep Mode | `--mode deep` 当前未实现，返回 exit 2（V2 计划） |
 
 v0.1 无上述组件，主链路不依赖外部服务。
 
@@ -128,7 +137,7 @@ v0.1 无上述组件，主链路不依赖外部服务。
 
 ## 7. 实现顺序建议
 
-1. **001 v0.1** — fixed pipeline + 2 检测器 + CLI
+1. **001 v0.1** — fixed pipeline + 子检测器 + CLI（原始切片 2 检测器，后续扩展至 9 类）
 2. **002 V1 Agent** — VLMReasoner + LLMJudge + AgentOrchestrator + 反馈循环
 3. **V1 检测器补全** — face / hair / hand / background（可与 002 并行部分）
 4. **V2** — 视频 + TemporalFlicker
@@ -137,5 +146,5 @@ v0.1 无上述组件，主链路不依赖外部服务。
 
 ## 8. Agent vs Workflow（一句话）
 
-**Workflow**：路径在编码时确定，无 Round 2。  
-**Agent**：LLM Judge 读 Round 1 全量结果，**自主决定**是否 VLM 确认、是否补检，有状态（AgentContext）与终止条件（最多 2 轮）。
+**Workflow**：路径在编码时确定，无反馈循环。
+**Agent（ReAct）**：LLM 在每一步读 CV 结果 + 历史 observation，**自主决定**是否调用 VLM、是否补检，有状态（`AgentContext` / `agent_steps`）与终止条件（`accept` 或达 `max_rounds × 3` 步）。VLM 触发由 LLM 推理决定，而非硬编码灰区阈值。

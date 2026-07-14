@@ -1,10 +1,15 @@
-# Tasks: V1 Agent Layer（VLM 兜底 + LLM Judge）
+# Tasks: V1 Agent Layer（ReAct Agent 自主决策）
 
 **Input**: Design documents from `specs/002-v1-agent-layer/`  
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md  
 **Depends on**: [`001-v0-fast-mvp`](../001-v0-fast-mvp/) 代码与测试已通过
 
 **Organization**: Tasks grouped by user story (US1 → US2 → US3). Constitution V + spec SC-004 要求 mock 集成测试与 contract 校验。
+
+> **架构演进说明（2026-07-14）**：本 tasks.md 原按「灰区 VLM + LLM Judge + Round 2 两轮」拆分任务（Phase 3 / 4 / 5）。实现过程中编排层**重构为 ReAct Agent 循环**——VLM 是否调用、是否补检由 LLM 每步自主决策，主链路不再有独立 Judge 阶段。下方原任务勾选状态保留作历史记录；最终交付能力以 ReAct 架构为准（详见 spec.md / plan.md / data-model.md）。具体映射：
+> - 原 T014 路由：灰区改为 `dispatch`（不再 `vlm_pending`），VLM 决策上移到 Agent。
+> - 原 T022–T026 Judge/Round 2：被 `judge_client.decide()` + `run_react_agent` + 工具执行器替代；旧 `run_judge` / `actions.py` 保留作降级路径。
+> - 新增 `AgentStep` / `agent_meta.agent_steps` / `agent_driven_vlm` 字段（schema 已更新）。
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -195,8 +200,9 @@ T015 → T016 → T017 → T021
 
 ## Notes
 
-- No new sub-detectors (face/hair) — use edge_bleed + compression_artifact only
-- Deep Mode stub only (`--mode deep` exit 2)
+- 编排层最终交付为 **ReAct Agent 循环**（非原灰区 VLM + Judge + Round 2 两轮设计）
+- 9 个子检测器复用 v0.1 实现（demo 上 6/8 可用）
+- Deep Mode stub only（`--mode deep` exit 2，V2 计划）
 - CI default: `pytest -m "not vlm"`; Ollama tests optional `@pytest.mark.vlm`
-- Judge MUST NOT compute MOS — ReportGenerator only
+- Agent MUST NOT compute MOS — ReportGenerator only（支持 rule / clip_iqa / internal）
 - v0.1 golden samples validated via `--legacy-fixed`

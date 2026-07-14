@@ -279,5 +279,5 @@ Each frame independent; corrupt frame → log + continue; summary exit 0 if ≥1
 1. Every `degradations[].evidence` has non-empty Chinese `detail`
 2. `overall_mos = max(1.0, min(cap, base_mos + total_penalty))`
 3. `bbox` width/height > 0 when degradation present
-4. `detector` ∈ `{edge_bleed, compression_artifact}` for MVP
+4. `detector` ∈ 9 类检测器集合（MVP 原始切片为 `{edge_bleed, compression_artifact}`，后续扩展至 9 类，见 README 检测器表）
 5. JSON output validates against `contracts/quality-report.schema.json`

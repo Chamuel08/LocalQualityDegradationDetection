@@ -1,7 +1,7 @@
 # Quickstart: V1 Agent Layer
 
 **Feature**: 002-v1-agent-layer  
-**Goal**: 在 001 基础上拉起 Ollama（或 mock）→ 验证 Agent Fast Mode 灰区 VLM + LLM Judge  
+**Goal**: 在 001 基础上拉起 Ollama（或 mock）→ 验证 Agent Fast Mode **ReAct Agent 自主决策（VLM 视觉确认 + 补检）**  
 **Prerequisite**: [`001-v0-fast-mvp/quickstart.md`](../001-v0-fast-mvp/quickstart.md) 步骤 1–3 已通过
 
 ---
@@ -61,14 +61,14 @@ curl -s "$OLLAMA_HOST/api/tags" | head
 ollama run qwen2.5:1.5b "reply ok" 
 ```
 
-不可达时 Agent 应**降级**出报告，trace 含 `vlm_skipped` / `judge_skipped`。
+不可达时 Agent 应**降级**到 `RuleBasedJudgeClient` 规则决策出报告，trace 含 `vlm_failed: service_unavailable`。
 
 ---
 
 ## 3. 运行 Agent Fast Mode
 
 ```bash
-# V1 默认（实现后）
+# V1 默认（ReAct Agent）
 python detect.py --image data/sample/frames/edge/edge_01.png --mode fast
 
 # v0.1 回归
@@ -78,8 +78,9 @@ python detect.py --image data/sample/frames/edge/edge_01.png --mode fast --legac
 **期望（Agent 开启 + Ollama 可用）**：
 
 - JSON `system_version` ≥ `1.0.0`
-- `decision_trace` 含 `routing`、`vlm_confirm`（灰区时）、`judge`
-- 灰区 degradations 含 `vlm_reasoning.reasoning`（中文）
+- `decision_trace` 含 `routing`、`detection`、`agent_step × N`（若 Agent 触发 VLM 则含 `vlm_confirm`）
+- `agent_meta.agent_steps` 含每步 `thought` / `action` / `observation`
+- 若 Agent 自主触发 VLM：`agent_meta.agent_driven_vlm=true`，对应 degradation 含 `vlm_reasoning.reasoning`（中文）
 - 通过 [`contracts/quality-report.v1.schema.json`](./contracts/quality-report.v1.schema.json)
 
 ---
@@ -113,12 +114,12 @@ pytest tests/ -m vlm -q
 
 | 场景 | 命令 / 条件 | 期望 |
 |------|-------------|------|
-| US1 灰区 VLM | edge 样本 confidence ∈ [0.4,0.7] | `vlm_confirm` trace + `vlm_reasoning` |
-| US1 高置信跳过 VLM | confidence > 0.7 | 无 `vlm_confirm` 或 `vlm_skipped` |
-| US1 VLM 不可用 | `OLLAMA_HOST` 无效 | 降级 + `vlm_skipped` |
-| US2 Judge dispatch | MOS 低无检出 mock | Round 2 `dispatch_compression` |
-| US2 白名单拒绝 | fuzz 非法 action | trace `judge_action_rejected` |
-| US3 完整 trace | 灰区 + Round 2 样本 | stages ≥ routing, detection, vlm_confirm, judge, aggregation |
+| US1 Agent 触发 VLM | 含低置信度项的样本，LLM 选 `vlm_analyze` | `agent_step(agent_vlm_analyze_stepN)` trace + `vlm_reasoning`，`agent_driven_vlm=true` |
+| US1 高置信跳过 VLM | 全高置信，LLM 直接 `accept` | `agent_driven_vlm=false`，无 `vlm_confirm` |
+| US1 VLM 不可用 | `OLLAMA_HOST` 无效 | 降级 + `vlm_failed: service_unavailable` |
+| US2 Agent 补检 | MOS 低无检出，LLM 选 `dispatch_compression` | `agent_step(agent_dispatch_compression_stepN)`，merged 含 `compression_artifact` |
+| US2 非法 action | fuzz 非法/不可解析 | 强制 `accept`，trace 记录，不崩溃 |
+| US3 完整 trace | 含 `vlm_analyze` 的样本 | stages ≥ routing, detection, agent_step×N, aggregation |
 
 ---
 

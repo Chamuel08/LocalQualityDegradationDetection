@@ -96,20 +96,20 @@
 
 ### Out of Scope (v0.1 MVP)
 
-- Deep Mode、VLM 灰区、LLM Judge Round 2
-- 子检测器：face_artifact、hair_texture、hand_anomaly、background_artifact、temporal_flicker
-- 完整 AgentOrchestrator 动态路由（v0.1 可用固定流水线：GlobalScan → edge + compression → Report）
+- Deep Mode、VLM 视觉确认、LLM Agent 编排（均属 V1，见 002）
 - 实时流接入
 - 完整 100 张数据集与 benchmark CI（可留 stub + sample 数据）
+
+> **演进说明**：v0.1 MVP 原始切片仅含 `edge_bleed` + `compression_artifact` 两个检测器；后续提交将子检测器扩展至 9 类（blur / mosaic / banding / background / hair_texture / face_artifact / hand_anomaly，其中 `hand_anomaly` 为实验性 MVP）。这些扩展检测器在 `--legacy-fixed` v0.1 路径下同样确定性运行，详见 README「检测器」表。
 
 ### Deferred to V1（明确非放弃）
 
 以下能力在 v0.1 **刻意延后**，V1 产品 **必须** 交付：
 
-- **VLM 灰区 Confirm** — badcase 兜底（confidence ∈ [0.4, 0.7]）
-- **LLM Judge** — Round 1 全帧整合 + Round 2 白名单自我决策
-- **AgentOrchestrator** — 动态路由替代 fixed pipeline
-- **Deep Mode** — 单条 badcase 深度归因（可选 CLI）
+- **VLM 视觉确认** — badcase ROI 兜底（由 LLM Agent 自主触发，非硬编码灰区）
+- **LLM Agent 编排** — ReAct 循环：LLM 自主决策是否调 VLM / 是否补检（取代早期设计的 Judge + Round 2）
+- **AgentOrchestrator** — 动态编排替代 fixed pipeline
+- **Deep Mode** — 单条 badcase 深度归因（V2 计划，002 未实现）
 
 详见 [`specs/002-v1-agent-layer/spec.md`](../002-v1-agent-layer/spec.md)、[`specs/VERSION_ROADMAP.md`](../VERSION_ROADMAP.md)。
 

@@ -12,7 +12,7 @@
 detect.py [--image PATH | --image-dir DIR] --mode {fast,deep} [OPTIONS]
 ```
 
-**V1 变更**：`--mode fast` 默认走 **AgentOrchestrator**（非 v0.1 fixed pipeline），含 VLM 灰区 + LLM Judge。
+**V1 变更**：`--mode fast` 默认走 **AgentOrchestrator（ReAct Agent）**（非 v0.1 fixed pipeline）；LLM 自主决策是否调用 VLM、是否补检。
 
 ---
 
@@ -36,12 +36,12 @@ detect.py [--image PATH | --image-dir DIR] --mode {fast,deep} [OPTIONS]
 |----------|---------|---------|
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama API |
 | `LQDD_VLM_MODEL` | `qwen2.5-vl:7b` | VLM Confirm |
-| `LQDD_JUDGE_MODEL` | `qwen2.5:1.5b` | LLM Judge |
+| `LQDD_JUDGE_MODEL` | `qwen2.5:1.5b` | Agent LLM（ReAct 决策） |
 | `OPENAI_API_BASE` | — | OpenAI 兼容 endpoint |
 | `OPENAI_API_KEY` | — | API 密钥 |
 | `LQDD_AGENT_ENABLED` | `true` | `false` 等同 `--legacy-fixed` |
 
-VLM/Judge 不可用时：**不失败**，降级出报告，`decision_trace` 含 `vlm_skipped` / `judge_skipped`。
+VLM/LLM 不可用时：**不失败**，Agent 降级到 `RuleBasedJudgeClient` 规则决策出报告，`decision_trace` 含 `vlm_failed: service_unavailable`。
 
 ---
 
@@ -71,8 +71,9 @@ LQDD_AGENT_ENABLED=false pytest tests/ -m "not vlm" -q
 
 - Agent 开启：JSON SHOULD validate against [`quality-report.v1.schema.json`](./quality-report.v1.schema.json)
 - Legacy fixed：JSON MUST validate against v0.1 schema
-- 灰区 case MUST 含 `degradations[].vlm_reasoning` 与 `decision_trace` stage `vlm_confirm`
-- Judge 完成 MUST 含 trace entry `stage=judge` 或 `decision` 前缀 `judge_`
+- Agent 自主触发 VLM 的 case SHOULD 含 `degradations[].vlm_reasoning` 与 `decision_trace` stage `vlm_confirm`
+- ReAct 每一步 MUST 含 `decision_trace` stage `agent_step`（`decision=agent_<action>_stepN`），且 `agent_meta.agent_steps` 完整
+- `agent_meta.judge_assessment` 在 ReAct 模式下为 `null`（无独立 Judge 阶段）
 
 ---
 
@@ -81,7 +82,8 @@ LQDD_AGENT_ENABLED=false pytest tests/ -m "not vlm" -q
 | Condition | Message pattern |
 |-----------|-----------------|
 | Deep not implemented | `error: deep mode not implemented in 002; use --mode fast` |
-| Judge parse failure | trace only: `judge_parse_failed`（不 exit 非 0） |
+| Agent action parse failure | trace only: 强制 `accept` 终止（不 exit 非 0） |
+| VLM service unavailable | trace only: `vlm_failed: service_unavailable`（不 exit 非 0） |
 
 ---
 
