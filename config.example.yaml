@@ -40,15 +40,16 @@ background_artifact:
   min_background_ratio: 0.12
 
 hair_texture:
-  highfreq_ratio_threshold: 0.22
-  min_hair_pixels: 400
+  relative_laplacian_threshold: 0.55
+  max_hair_laplacian_var: 35.0
+  min_hair_pixels: 80
 
 face_artifact:
   overexposure_ratio_threshold: 0.25
   blur_laplacian_threshold: 85.0
   min_face_pixels: 300
 
-hand_anomaly:
+hand_anomaly:  # experimental MVP — heuristic hand ROI; see specs/hand_anomaly.spec.md
   edge_density_threshold: 0.14
   finger_spread_threshold: 2.8
   min_hand_pixels: 250
@@ -69,13 +70,13 @@ agent:
 
 vlm:
   provider: ollama
-  model: qwen2.5-vl:7b   # 本地 Ollama 常见名为 qwen2.5vl:7b，见 config.yaml
+  model: qwen2.5vl:7b
   host: http://localhost:11434
-  timeout_ms: 2000
+  timeout_ms: 120000
   max_calls_per_frame: 3
 
 judge:
   provider: ollama
-  model: qwen2.5:1.5b   # 本地可用 qwen2.5:3b 等，见 config.yaml
+  model: qwen2.5:3b
   host: http://localhost:11434
-  timeout_ms: 1500
+  timeout_ms: 45000

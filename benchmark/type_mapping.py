@@ -12,10 +12,13 @@ GT_TYPE_TO_DETECTOR: dict[str, str | None] = {
     "underexposure": "face_artifact",
     "banding": "banding_artifact",
     "noise": None,
+    "green_spill": "edge_bleed",
     "background": "background_artifact",
+    "hair_texture": "hair_texture",
     "hair": "hair_texture",
     "hand": "hand_anomaly",
     "face": "face_artifact",
+    "clean": None,
 }
 
 # lqdd degradation_type 也可能出现在 report 里

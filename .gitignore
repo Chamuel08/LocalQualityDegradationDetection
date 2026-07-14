@@ -27,17 +27,20 @@ docs/FEISHU_SCREENSHOTS.md
 docs/PORTFOLIO.md
 docs/design/
 
-# Generated demo outputs (regenerate locally if needed)
+# Generated demo outputs (regenerate locally)
 examples/
 scripts/export_feishu_assets.py
-scripts/generate_demo_assets.py
 
 # Local evaluation outputs
 benchmark/runs/
 benchmark/results.json
+benchmark/results_smoke.json
 benchmark/results_compression_hf.json
 benchmark/results_tier0.json
 benchmark/runs/feishu_export/
+
+# macOS
+.DS_Store
 
 # CatPaw-generated module specs & full system design (keep locally)
 specs/*.spec.md

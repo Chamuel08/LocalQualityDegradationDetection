@@ -19,9 +19,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# mediapipe: optional upgrade for experimental hand_anomaly (fallback works without it)
 mediapipe = ["mediapipe>=0.10"]
 full = ["mediapipe>=0.10"]
-dev = ["pytest>=7.4"]
+dev = ["pytest>=7.4", "Pillow>=10.0"]
 
 [project.scripts]
 lqdd = "lqdd.cli.main:main"

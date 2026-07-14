@@ -1,0 +1,5 @@
+# Development / full local setup (runtime + tests + editable install)
+-r requirements.txt
+pytest>=7.4
+Pillow>=10.0
+-e .

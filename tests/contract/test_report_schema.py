@@ -43,10 +43,11 @@ def test_minimal_report_validates(schema_path: Path) -> None:
     }
 def test_golden_samples_validate(schema_path: Path, expected_dir: Path) -> None:
     if not expected_dir.is_dir():
-        pytest.skip("golden expected dir not generated yet")
+        pytest.skip("golden expected dir removed; use GT benchmark manifest eval")
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     files = sorted(expected_dir.glob("*.json"))
-    assert files, "no golden JSON files"
+    if not files:
+        pytest.skip("no golden JSON files (deprecated; use synthetic_benchmark)")
     for path in files:
         data = json.loads(path.read_text(encoding="utf-8"))
         jsonschema.validate(instance=data, schema=schema)

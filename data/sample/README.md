@@ -1,37 +1,43 @@
-# Sample Data Manifest (v0.1)
+# Benchmark data (GT)
 
-Synthetic frames for pytest and quickstart validation. Regenerate with:
+**主测试集不在本仓库内生成。** 请使用本地 `~/data/degradation` 生成带 pixel mask + bbox 的评测集。
 
-```bash
-python scripts/generate_synthetic_samples.py
-```
-
-## Layout
-
-| Directory | Count | Description | Expected detector |
-|-----------|-------|-------------|-------------------|
-| `frames/edge/` | 5 | Green spill on subject contour | `edge_bleed` |
-| `frames/block/` | 5 | Nearest-neighbor upscale blockiness | `compression_artifact` |
-| `frames/normal/` | 5 | Clean reference frames | none (severity `good`) |
-
-## Golden reports (`expected/`)
-
-| File | Source frame | Notes |
-|------|--------------|-------|
-| `edge_01.json` | `frames/edge/edge_01.png` | Must contain `edge_bleed` |
-| `block_01.json` | `frames/block/block_01.png` | Must contain `compression_artifact` |
-| `normal_01.json` | `frames/normal/normal_01.png` | Empty or low-severity degradations |
-
-Regenerate golden JSON:
+## 生成 GT benchmark（推荐）
 
 ```bash
-python detect.py --image data/sample/frames/edge/edge_01.png --mode fast --output data/sample/expected/edge_01.json
-python detect.py --image data/sample/frames/block/block_01.png --mode fast --output data/sample/expected/block_01.json
-python detect.py --image data/sample/frames/normal/normal_01.png --mode fast --output data/sample/expected/normal_01.json
+# 在 lqdd 仓库
+export LQDD_DATA_DIR=/path/to/data
+export LQDD_SOURCE_DIR=$LQDD_DATA_DIR/source_frames
+python scripts/generate_benchmark_dataset.py \
+  --output $LQDD_DATA_DIR/synthetic_benchmark \
+  --samples-per-type 5 \
+  --clean-count 8
 ```
 
-Validate against schema:
+输出：
+
+```
+~/data/synthetic_benchmark/
+├── images/          劣化图
+├── masks/           GT mask（像素值 = class_id）
+└── manifest.json    bbox + primary_type + source
+```
+
+## 跑批量评测
 
 ```bash
-pytest tests/contract/test_report_schema.py -q
+python benchmark/run_eval.py \
+  --manifest $LQDD_DATA_DIR/synthetic_benchmark/manifest.json \
+  --output benchmark/runs/results.json
 ```
+
+## 与旧 `data/sample/frames/` 的关系
+
+`data/sample/frames/` **已废弃**（刻意降质 demo 图，无 GT，不用于 benchmark）。
+
+- **Benchmark 主力**：`synthetic_benchmark`（由 `~/data/degradation` 合成）
+- **Demo 可视化**：`docs/demo/`（仓库自带，AI 生成合成人像 + 程序化劣化）
+
+## GT 类型 ↔ lqdd detector
+
+见 `benchmark/type_mapping.py`。v2 覆盖：`edge_compression`, `block`, `blur`, `mosaic`, `banding`, `overexposure`, `green_spill`, `hair_texture` + clean 负样本。

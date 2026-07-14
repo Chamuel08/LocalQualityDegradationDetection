@@ -1,0 +1,1 @@
+"""Synthetic / controlled degradation helpers."""

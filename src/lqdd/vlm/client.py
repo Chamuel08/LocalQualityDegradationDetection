@@ -31,7 +31,7 @@ class OllamaVLMClient(VLMClient):
             "stream": False,
         }
         try:
-            with httpx.Client(timeout=self.config.timeout_ms / 1000.0) as client:
+            with httpx.Client(timeout=self.config.timeout_ms / 1000.0, trust_env=False) as client:
                 resp = client.post(url, json=payload)
                 resp.raise_for_status()
                 data = resp.json()

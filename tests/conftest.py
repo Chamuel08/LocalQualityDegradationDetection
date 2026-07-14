@@ -10,11 +10,6 @@ SCHEMA_V1_PATH = REPO_ROOT / "specs" / "002-v1-agent-layer" / "contracts" / "qua
 VLM_SCHEMA_PATH = REPO_ROOT / "specs" / "002-v1-agent-layer" / "contracts" / "vlm-confirm.schema.json"
 JUDGE_SCHEMA_PATH = REPO_ROOT / "specs" / "002-v1-agent-layer" / "contracts" / "llm-judge.schema.json"
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
-SAMPLE_ROOT = REPO_ROOT / "data" / "sample"
-EDGE_DIR = SAMPLE_ROOT / "frames" / "edge"
-BLOCK_DIR = SAMPLE_ROOT / "frames" / "block"
-NORMAL_DIR = SAMPLE_ROOT / "frames" / "normal"
-EXPECTED_DIR = SAMPLE_ROOT / "expected"
 
 
 @pytest.fixture
@@ -48,20 +43,6 @@ def mock_judge_dispatch_fixture() -> Path:
 
 
 @pytest.fixture
-def sample_edge_dir() -> Path:
-    return EDGE_DIR
-
-
-@pytest.fixture
-def sample_block_dir() -> Path:
-    return BLOCK_DIR
-
-
-@pytest.fixture
-def sample_normal_dir() -> Path:
-    return NORMAL_DIR
-
-
-@pytest.fixture
 def expected_dir() -> Path:
-    return EXPECTED_DIR
+    """Legacy golden JSON dir (deprecated; kept for optional contract tests)."""
+    return REPO_ROOT / "data" / "sample" / "expected"

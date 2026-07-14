@@ -13,6 +13,7 @@ def _fallback_segment_foreground(frame_bgr: np.ndarray) -> np.ndarray:
     rect = (int(w * 0.15), int(h * 0.08), int(w * 0.7), int(h * 0.84))
     bgd = np.zeros((1, 65), np.float64)
     fgd = np.zeros((1, 65), np.float64)
+    cv2.setRNGSeed(42)
     cv2.grabCut(frame_bgr, mask, rect, bgd, fgd, 3, cv2.GC_INIT_WITH_RECT)
     return (mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD)
 

@@ -7,7 +7,7 @@ from lqdd.config.loader import HairTextureConfig
 from lqdd.detectors.base import (
     bbox_from_mask,
     clip_bbox,
-    fft_highfreq_ratio,
+    face_region_mask,
     foreground_mask_from_scan,
     hair_region_mask,
     mask_from_heatmap,
@@ -15,6 +15,21 @@ from lqdd.detectors.base import (
 from lqdd.detectors.helpers import make_degradation_item
 from lqdd.models.enums import RegionType, RootCauseCategory, Severity
 from lqdd.models.inputs import GlobalScanOutput, SingleFrameInput
+
+
+def _laplacian_var(gray: np.ndarray, mask: np.ndarray) -> float:
+    if not mask.any():
+        return 0.0
+    ys, xs = np.where(mask)
+    y0, y1 = int(ys.min()), int(ys.max()) + 1
+    x0, x1 = int(xs.min()), int(xs.max()) + 1
+    crop = gray[y0:y1, x0:x1].astype(np.float32)
+    mask_crop = mask[y0:y1, x0:x1]
+    if crop.size < 9:
+        return float(crop.var())
+    fill = float(crop[mask_crop].mean()) if mask_crop.any() else float(crop.mean())
+    crop[~mask_crop] = fill
+    return float(cv2.Laplacian(crop.astype(np.uint8), cv2.CV_64F).var())
 
 
 class HairTextureDetector:
@@ -36,18 +51,44 @@ class HairTextureDetector:
             return []
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        hair_var = _laplacian_var(gray, hair)
+        face = face_region_mask(fg, h, w)
+        face_var = _laplacian_var(gray, face) if face.sum() >= 120 else max(hair_var, 1.0)
+        relative = hair_var / (face_var + 1e-6)
+
+        absolute_hit = hair_var <= self.config.max_hair_laplacian_var
+        relative_hit = face_var >= 10.0 and relative < self.config.relative_laplacian_threshold
+        if not absolute_hit and not relative_hit:
+            return []
+
+        loss = float(
+            np.clip(
+                max(
+                    1.0 - relative / max(self.config.relative_laplacian_threshold, 1e-3),
+                    1.0 - hair_var / max(self.config.max_hair_laplacian_var, 1e-3),
+                ),
+                0,
+                1,
+            )
+        )
+        metric = "hair_face_laplacian_ratio" if relative_hit else "hair_laplacian_var"
+        value = relative if relative_hit else hair_var
+        threshold = (
+            self.config.relative_laplacian_threshold
+            if relative_hit
+            else self.config.max_hair_laplacian_var
+        )
         ys, xs = np.where(hair)
         y0, y1 = int(ys.min()), int(ys.max()) + 1
         x0, x1 = int(xs.min()), int(xs.max()) + 1
-        crop = gray[y0:y1, x0:x1]
-        ratio = fft_highfreq_ratio(crop)
-        loss = float(np.clip(1.0 - ratio / max(self.config.highfreq_ratio_threshold, 1e-3), 0, 1))
-        if ratio >= self.config.highfreq_ratio_threshold:
-            return []
-
         heat = np.zeros((h, w), dtype=np.float32)
         heat[y0:y1, x0:x1] = loss
-        region_mask = mask_from_heatmap(heat, threshold=0.25, roi_mask=hair, min_area=200)
+        region_mask = mask_from_heatmap(
+            heat,
+            threshold=0.25,
+            roi_mask=hair,
+            min_area=max(80, self.config.min_hair_pixels // 4),
+        )
         bbox = clip_bbox(bbox_from_mask(region_mask) if region_mask is not None else (x0, y0, x1 - x0, y1 - y0), w, h)
 
         return [
@@ -60,13 +101,13 @@ class HairTextureDetector:
                 mos_impact=-0.2,
                 bbox=bbox,
                 region_mask=region_mask,
-                method="fft_highfreq_hair",
-                metric="highfreq_ratio",
-                value=ratio,
-                threshold=self.config.highfreq_ratio_threshold,
+                method="laplacian_hair_vs_face",
+                metric=metric,
+                value=round(value, 4),
+                threshold=threshold,
                 detail=(
-                    f"发丝区域 FFT 高频能量比 {ratio:.2f} 低于阈值 {self.config.highfreq_ratio_threshold}；"
-                    f"可能存在发丝糊化/纹理损失"
+                    f"发丝 Laplacian 方差 {hair_var:.1f}，相对面部 {relative:.2f}；"
+                    f"阈值 {self.config.max_hair_laplacian_var} / {self.config.relative_laplacian_threshold}"
                 ),
                 description="头发区域高频纹理不足或糊化",
                 cause=RootCauseCategory.GENERATION_ARTIFACT,

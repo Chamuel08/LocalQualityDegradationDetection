@@ -65,8 +65,9 @@ class BackgroundArtifactConfig:
 
 @dataclass
 class HairTextureConfig:
-    highfreq_ratio_threshold: float = 0.22
-    min_hair_pixels: int = 400
+    relative_laplacian_threshold: float = 0.55
+    max_hair_laplacian_var: float = 35.0
+    min_hair_pixels: int = 80
 
 
 @dataclass

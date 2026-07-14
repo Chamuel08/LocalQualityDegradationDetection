@@ -259,7 +259,7 @@ def localize_spill_mask(spill_mask: np.ndarray, min_area: int = 50) -> np.ndarra
 
 
 def detection_roi_mask(scan_output: GlobalScanOutput, h: int, w: int) -> np.ndarray:
-    """Prefer edge band + upper portrait area for TaoLive-like frames."""
+    """Prefer edge band + upper portrait area for portrait-style frames."""
     roi = np.zeros((h, w), dtype=bool)
     if scan_output.edge_mask is not None and scan_output.edge_mask.any():
         roi |= scan_output.edge_mask
