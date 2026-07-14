@@ -140,7 +140,7 @@ Subset of [`USE_CASE_BADCASE.md`](../USE_CASE_BADCASE.md) §3 used in MVP:
 | `degradation_type` | `str` | ✅ | e.g. `green_edge`, `encoding_block_artifact` |
 | `severity` | `Severity` | ✅ | good/minor/moderate/severe/critical |
 | `confidence` | `float` | ✅ | [0, 1] |
-| `mos_impact` | `float` | ✅ | Negative float |
+| `mos_impact` | `float` | ✅ | Negative float；仅用于 rule 后端 MOS 求和，非感知归因 |
 | `bbox` | `BBox` | ✅ | Union of affected area |
 | `frame_indices` | `list[int]` | ✅ | `[0]` for single frame |
 | `description` | `str` | ✅ | Short Chinese summary |
@@ -150,6 +150,8 @@ Subset of [`USE_CASE_BADCASE.md`](../USE_CASE_BADCASE.md) §3 used in MVP:
 | `vlm_reasoning` | `VLMReasoning \| None` | ❌ | MVP: always null |
 
 ### Severity → mos_impact (MVP defaults from edge_bleed spec)
+
+> **MOS 与归因解耦**：`mos_impact` 仅用于 rule 后端把各劣化项叠加成帧级 MOS 总分（`base_mos + Σ penalty × decay_factor^i`），是工程启发式求和，**非感知归因**。真正的归因（劣化是什么 / 在哪 / 为什么）看 `degradations[]`（detector / bbox / evidence / root_cause / vlm_reasoning），与 `mos_impact` 无关。`mos_model=clip_iqa` 时由 CLIP-IQA 直接预测总分，不使用本表。
 
 | Severity | Typical mos_impact |
 |----------|-------------------|

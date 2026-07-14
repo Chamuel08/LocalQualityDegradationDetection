@@ -40,27 +40,26 @@ def compute_mos(
     cfg: ReportConfig,
     frame_bgr: "np.ndarray | None" = None,
 ) -> tuple[float, MOSBreakdown]:
-    """计算帧级 MOS 分数。
+    """计算帧级 MOS 分数（单一总分）。
+
+    **MOS 与归因解耦**：归因（劣化是什么 / 在哪 / 为什么）来自 `degradations[]`
+    （detector / bbox / evidence / root_cause / vlm_reasoning），与本函数无关。
+    本函数只产出帧级一个总分；`mos_breakdown.penalties` 在 `clip_iqa` 模式下为空，
+    在 `rule` 模式下为求和明细（非感知归因）。
 
     支持三种后端（由 cfg.mos_model 控制）：
 
     1. "rule"（默认，零额外依赖）
-       MOS = base_mos + Σ( penalty_i × decay_factor^i )
-       衰减公式说明与局限性：
-         - decay_factor=0.7 是工程经验值，模拟多劣化叠加时的感知边际递减。
-         - 不具备严格学术支撑（ITU-T P.910 等标准 MOS 均来自主观实验拟合）。
+       MOS = base_mos + Σ( penalty_i × decay_factor^i )，工程启发，非主观拟合。
 
-    2. "clip_iqa"（推荐用于 AI 合成图，需 pyiqa + torch）
-       使用 CLIP-IQA（ICCV 2023）对整帧图像做无参考画质预测，
-       输出 [0,1] 分数线性映射到 MOS [1,5]。
-       优点：不依赖检测器硬编码的 mos_impact，对 AI 合成失真泛化更好。
-       需传入 frame_bgr 参数（BGR uint8 numpy array）。
+    2. "clip_iqa"（推荐，需 pyiqa + torch）
+       CLIP-IQA（ICCV 2023）无参考画质预测，[0,1] 线性映射到 MOS [1,5]。
+       需传入 frame_bgr（BGR uint8）。
 
     3. "internal"（预留，需自行实现 lqdd.mos.internal_model）
-       接入内部主观拟合模型。
 
     Args:
-        degradations: 当前帧所有检出的劣化项
+        degradations: 当前帧所有检出的劣化项（归因来源，与 MOS 计算独立）
         cfg:          ReportConfig，包含 base_mos, decay_factor, mos_model
         frame_bgr:    原始帧图像（BGR uint8），clip_iqa 模式下必须提供
 
@@ -129,6 +128,8 @@ def compute_mos(
     # ------------------------------------------------------------------ #
     # rule 路径（默认 / 降级）                                              #
     # 按 mos_impact 绝对值降序，后续项以 decay_factor^index 衰减            #
+    # 注意：per-item effective_penalty 是求和明细，非感知归因；归因看        #
+    # degradations[]（detector/bbox/evidence/root_cause）。                #
     # ------------------------------------------------------------------ #
     sorted_items = sorted(degradations, key=lambda d: abs(d.mos_impact), reverse=True)
     penalties: list[PenaltyItem] = []

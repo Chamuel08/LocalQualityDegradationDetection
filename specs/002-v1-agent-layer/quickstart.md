@@ -11,7 +11,7 @@
 - 001 v0.1 代码已安装：`pip install -e ".[dev]"`
 - **可选实机 VLM/Judge**：
   - [Ollama](https://ollama.com/) 已安装并运行
-  - 模型已拉取：`ollama pull qwen2.5-vl:7b` 和 `ollama pull qwen2.5:1.5b`
+  - 模型已拉取：`ollama pull qwen2.5vl:7b` 和 `ollama pull qwen2.5:1.5b`
 - **CI / 无 GPU**：使用 mock（默认 `pytest -m "not vlm"`）
 
 ---
@@ -34,7 +34,7 @@ agent:
 
 vlm:
   provider: ollama
-  model: qwen2.5-vl:7b
+  model: qwen2.5vl:7b
   host: http://localhost:11434
   timeout_ms: 2000
 
@@ -48,7 +48,7 @@ judge:
 
 ```bash
 export OLLAMA_HOST=http://localhost:11434
-export LQDD_VLM_MODEL=qwen2.5-vl:7b
+export LQDD_VLM_MODEL=qwen2.5vl:7b
 export LQDD_JUDGE_MODEL=qwen2.5:1.5b
 ```
 

@@ -40,7 +40,7 @@ GlobalScan → Router（置信度分级，灰区也 dispatch）→ 9 SubDetector
 - 保留：OpenCV, NumPy, PyYAML, jsonschema, pytest
 
 **External Services**（V1 必需，可 mock）:
-- **VLM**：`qwen2.5-vl:7b` @ Ollama（默认 `http://localhost:11434`）或 `OPENAI_API_BASE` + `OPENAI_API_KEY`
+- **VLM**：`qwen2.5vl:7b` @ Ollama（默认 `http://localhost:11434`）或 `OPENAI_API_BASE` + `OPENAI_API_KEY`
 - **LLM Judge**：`qwen2.5:1.5b` @ Ollama 或同等小模型 API
 - 密钥仅环境变量：`OLLAMA_HOST`, `OPENAI_API_KEY`, `LQDD_VLM_MODEL`, `LQDD_JUDGE_MODEL`
 

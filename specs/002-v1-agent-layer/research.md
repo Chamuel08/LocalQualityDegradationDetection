@@ -10,7 +10,7 @@
 
 ## R1. VLM 服务接入（灰区 Confirm）
 
-**Decision**: **Ollama 优先** + **OpenAI 兼容 API 回退**；统一 `VLMClient` 接口，模型默认 `qwen2.5-vl:7b`（`LQDD_VLM_MODEL` 可覆盖）。
+**Decision**: **Ollama 优先** + **OpenAI 兼容 API 回退**；统一 `VLMClient` 接口，模型默认 `qwen2.5vl:7b`（`LQDD_VLM_MODEL` 可覆盖）。
 
 **Rationale**:
 - spec Assumptions 明确 Ollama 本地可跑 Qwen2.5-VL-7B
@@ -21,7 +21,7 @@
 **Request shape (Ollama)**:
 ```http
 POST /api/chat
-{"model":"qwen2.5-vl:7b","messages":[{"role":"user","content":"...","images":["<base64>"]}],"format":"json"}
+{"model":"qwen2.5vl:7b","messages":[{"role":"user","content":"...","images":["<base64>"]}],"format":"json"}
 ```
 
 **Alternatives considered**:

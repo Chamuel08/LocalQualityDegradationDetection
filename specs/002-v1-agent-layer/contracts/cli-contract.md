@@ -35,7 +35,7 @@ detect.py [--image PATH | --image-dir DIR] --mode {fast,deep} [OPTIONS]
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama API |
-| `LQDD_VLM_MODEL` | `qwen2.5-vl:7b` | VLM Confirm |
+| `LQDD_VLM_MODEL` | `qwen2.5vl:7b` | VLM Confirm |
 | `LQDD_JUDGE_MODEL` | `qwen2.5:1.5b` | Agent LLM（ReAct 决策） |
 | `OPENAI_API_BASE` | — | OpenAI 兼容 endpoint |
 | `OPENAI_API_KEY` | — | API 密钥 |

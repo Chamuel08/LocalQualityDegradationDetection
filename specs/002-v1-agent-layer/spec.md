@@ -95,7 +95,7 @@ LLM Agent 在每一步可从工具集 `{vlm_analyze, rerun_detector, dispatch_co
 
 ## Assumptions
 
-- Ollama 本地可跑 `qwen2.5-vl:7b` 与 `qwen2.5:1.5b`，或云端 OpenAI 兼容 API
+- Ollama 本地可跑 `qwen2.5vl:7b` 与 `qwen2.5:1.5b`，或云端 OpenAI 兼容 API
 - v0.1 的 QualityReport Schema 扩展 `vlm_reasoning` / `agent_meta` 字段，不破坏现有 golden sample
 - CI 默认 `pytest -m "not vlm"`；VLM 测试 mock
 

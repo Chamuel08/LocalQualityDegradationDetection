@@ -111,7 +111,7 @@ class AgentConfig:
 @dataclass
 class VLMConfig:
     provider: str = "ollama"
-    model: str = "qwen2.5-vl:7b"
+    model: str = "qwen2.5vl:7b"
     host: str = "http://localhost:11434"
     timeout_ms: int = 2000
     max_calls_per_frame: int = 3

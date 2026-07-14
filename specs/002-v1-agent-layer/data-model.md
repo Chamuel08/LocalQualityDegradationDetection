@@ -193,7 +193,7 @@ agent:
 
 vlm:
   provider: ollama                 # ollama | openai
-  model: qwen2.5-vl:7b
+  model: qwen2.5vl:7b
   host: http://localhost:11434
   timeout_ms: 2000
   max_calls_per_frame: 3

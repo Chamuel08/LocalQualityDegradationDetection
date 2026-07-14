@@ -212,17 +212,19 @@
     },
     "PenaltyItem": {
       "type": "object",
+      "description": "rule 后端求和明细项（调试用，非感知归因）。真正的归因看 degradations[]（detector/bbox/evidence/root_cause/vlm_reasoning），与本项无关。mos_model=clip_iqa 时 MOSBreakdown.penalties 为空，不产生本项。",
       "required": ["source", "penalty", "reason"],
       "properties": {
-        "source": { "type": "string" },
-        "penalty": { "type": "number" },
-        "effective_penalty": { "type": "number" },
-        "decay_index": { "type": "integer", "minimum": 0 },
+        "source": { "type": "string", "description": "劣化来源 id（仅用于求和标识）" },
+        "penalty": { "type": "number", "description": "原始 mos_impact（启发式，非感知贡献）" },
+        "effective_penalty": { "type": "number", "description": "penalty × decay_factor^decay_index（求和中间量，非感知归因）" },
+        "decay_index": { "type": "integer", "minimum": 0, "description": "按 |penalty| 降序的叠加序号" },
         "reason": { "type": "string" }
       }
     },
     "MOSBreakdown": {
       "type": "object",
+      "description": "帧级 MOS 总分的求和明细。MOS 与归因解耦：归因看 degradations[]，MOS 只是帧级一个总分。mos_model=clip_iqa 时由 CLIP-IQA 直接预测总分，penalties 为空。",
       "required": ["base_mos", "total_penalty", "cap_applied", "penalties"],
       "properties": {
         "base_mos": { "type": "number" },

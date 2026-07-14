@@ -58,6 +58,11 @@ report:
   base_mos: 4.5
   decay_factor: 0.7
   system_version: "0.1.0"
+  # MOS 预测后端：
+  #   rule      — 默认，硬编码 mos_impact + 衰减公式（零依赖）
+  #   clip_iqa  — CLIP-IQA 无参考画质预测（需 pip install "lqdd[clip_iqa]"）
+  #   internal  — 预留，需自行实现 lqdd.mos.internal_model
+  mos_model: "rule"
 
 agent:
   enabled: true
@@ -77,6 +82,6 @@ vlm:
 
 judge:
   provider: ollama
-  model: qwen2.5:3b
+  model: qwen2.5:1.5b
   host: http://localhost:11434
   timeout_ms: 45000
