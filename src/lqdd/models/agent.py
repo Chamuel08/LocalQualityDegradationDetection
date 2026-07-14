@@ -48,6 +48,20 @@ class AgentAction:
     detector: str | None = None
     nomination_threshold_delta: float | None = None
     reason: str | None = None
+    # ReAct Agent 新增：关联的检测项 ID（vlm_analyze 时使用）
+    degradation_id: str | None = None
+
+
+@dataclass
+class AgentStep:
+    """记录 ReAct Agent 一个完整的 Thought-Action-Observation 步骤。"""
+
+    step_index: int
+    thought: str
+    action: AgentAction
+    # Observation：工具执行后的结果描述
+    observation: str = ""
+    latency_ms: float = 0.0
 
 
 @dataclass
@@ -66,6 +80,10 @@ class AgentMeta:
     max_rounds_reached: bool = False
     vlm_calls: int = 0
     judge_assessment: str | None = None
+    # ReAct Agent 新增：记录 Agent 自主决策步骤
+    agent_steps: list[dict[str, Any]] = field(default_factory=list)
+    # ReAct Agent 新增：是否由 Agent 自主决策触发 VLM（而非硬编码路由）
+    agent_driven_vlm: bool = False
 
 
 @dataclass
@@ -88,3 +106,5 @@ class AgentContext:
     dispatched_detectors: list[str] = field(default_factory=list)
     vlm_ms: float = 0.0
     judge_ms: float = 0.0
+    # ReAct Agent 新增：记录所有 Agent 自主决策步骤
+    agent_steps: list[AgentStep] = field(default_factory=list)

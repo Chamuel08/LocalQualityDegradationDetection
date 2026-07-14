@@ -25,7 +25,11 @@ def _confidence_band(score: float, cfg: AgentConfig) -> str:
 
 
 def route_nominations(scan: GlobalScanOutput, cfg: AgentConfig, ctx: AgentContext) -> list[str]:
-    """Return list of detector names to dispatch."""
+    """Return list of detector names to dispatch.
+
+    注意：在 ReAct Agent 架构下，路由器不再负责决定哪些检测项需要 VLM 确认。
+    灰区（grey）的检测项统一标记为 dispatch，由 Agent 在后续步骤中自主决定是否调用 VLM。
+    """
     dispatched: list[str] = []
     decisions: list[RoutingDecision] = []
 
@@ -52,11 +56,11 @@ def route_nominations(scan: GlobalScanOutput, cfg: AgentConfig, ctx: AgentContex
             )
             continue
 
-        decision_type = "vlm_pending" if band == "grey" else "dispatch"
+        # 灰区和高置信度均派发给 CV 检测器；VLM 是否介入由 Agent 决定
         decisions.append(
             RoutingDecision(
                 target_detector=detector,
-                decision=decision_type,
+                decision="dispatch",
                 reason=f"提名 anomaly={nom.anomaly_score:.2f} band={band}",
                 confidence_band=band,
                 region_type=str(nom.region_type),

@@ -55,12 +55,93 @@ def collect_pending_vlm(
     return pending
 
 
+def run_vlm_confirm_for_item(
+    deg: DegradationItem,
+    ctx: AgentContext,
+    client: VLMClient,
+    agent_cfg: AgentConfig,
+    vlm_cfg: VLMConfig,
+) -> VLMResult | None:
+    """对单个 DegradationItem 进行 VLM 确认（由 ReAct Agent 自主调用）。
+
+    Returns:
+        VLMResult if VLM 成功响应, None otherwise.
+    """
+    frame = ctx.frame_input.frame if ctx.frame_input else None
+    if frame is None:
+        return None
+
+    if ctx.vlm_calls_count >= vlm_cfg.max_calls_per_frame:
+        ctx.traces.append(
+            TraceEntry(
+                stage="vlm_confirm",
+                module="VLMConfirm",
+                timestamp_ms=0.0,
+                duration_ms=0.0,
+                input_summary={"degradation_id": deg.degradation_id},
+                output_summary={},
+                decision="vlm_skipped: quota_exceeded",
+                mode="fast",
+            )
+        )
+        return None
+
+    roi = _crop_roi(frame, list(deg.bbox))
+    b64 = _to_b64(roi)
+    prompt = VLM_CONFIRM_PROMPT.format(
+        region_type=deg.region_type,
+        preliminary_result=deg.degradation_type,
+        confidence=f"{deg.confidence:.2f}",
+        detector_judgment=deg.description,
+        degradation_types=deg.degradation_type,
+    )
+
+    t0 = time.perf_counter()
+    raw = client.confirm(prompt, b64)
+    latency = (time.perf_counter() - t0) * 1000.0
+    ctx.vlm_calls_count += 1
+    ctx.vlm_ms += latency
+
+    if raw is None:
+        ctx.traces.append(
+            TraceEntry(
+                stage="vlm_confirm",
+                module="VLMConfirm",
+                timestamp_ms=0.0,
+                duration_ms=latency,
+                input_summary={"degradation_id": deg.degradation_id},
+                output_summary={},
+                decision="vlm_failed: service_unavailable",
+                mode="fast",
+            )
+        )
+        return None
+
+    result = parse_vlm_response(raw, deg.region_type, deg.degradation_type, latency)
+    ctx.traces.append(
+        TraceEntry(
+            stage="vlm_confirm",
+            module="VLMConfirm",
+            timestamp_ms=0.0,
+            duration_ms=latency,
+            input_summary={"degradation_id": deg.degradation_id, "detector": deg.detector},
+            output_summary={"is_degraded": result.is_degraded, "vlm_confidence": result.vlm_confidence},
+            decision="vlm_confirmed",
+            mode="fast",
+        )
+    )
+    return result
+
+
 def run_vlm_confirm(
     ctx: AgentContext,
     client: VLMClient,
     agent_cfg: AgentConfig,
     vlm_cfg: VLMConfig,
 ) -> list[VLMResult]:
+    """旧版批量 VLM 确认（保留向后兼容）。
+    新的 ReAct Agent 模式使用 run_vlm_confirm_for_item 代替。
+    """
     results: list[VLMResult] = []
     frame = ctx.frame_input.frame if ctx.frame_input else None
     if frame is None:

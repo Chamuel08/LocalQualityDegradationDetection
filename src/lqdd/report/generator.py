@@ -5,6 +5,8 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any
 
+import numpy as np
+
 from lqdd.config.loader import ReportConfig
 from lqdd.models.enums import Severity
 from lqdd.models.inputs import GlobalScanOutput, SingleFrameInput
@@ -33,9 +35,101 @@ def _overall_severity(degradations: list[DegradationItem]) -> str:
     return max(degradations, key=lambda d: SEVERITY_ORDER.get(d.severity, 0)).severity
 
 
-def compute_mos(degradations: list[DegradationItem], cfg: ReportConfig) -> tuple[float, MOSBreakdown]:
+def compute_mos(
+    degradations: list[DegradationItem],
+    cfg: ReportConfig,
+    frame_bgr: "np.ndarray | None" = None,
+) -> tuple[float, MOSBreakdown]:
+    """计算帧级 MOS 分数。
+
+    支持三种后端（由 cfg.mos_model 控制）：
+
+    1. "rule"（默认，零额外依赖）
+       MOS = base_mos + Σ( penalty_i × decay_factor^i )
+       衰减公式说明与局限性：
+         - decay_factor=0.7 是工程经验值，模拟多劣化叠加时的感知边际递减。
+         - 不具备严格学术支撑（ITU-T P.910 等标准 MOS 均来自主观实验拟合）。
+
+    2. "clip_iqa"（推荐用于 AI 合成图，需 pyiqa + torch）
+       使用 CLIP-IQA（ICCV 2023）对整帧图像做无参考画质预测，
+       输出 [0,1] 分数线性映射到 MOS [1,5]。
+       优点：不依赖检测器硬编码的 mos_impact，对 AI 合成失真泛化更好。
+       需传入 frame_bgr 参数（BGR uint8 numpy array）。
+
+    3. "internal"（预留，需自行实现 lqdd.mos.internal_model）
+       接入内部主观拟合模型。
+
+    Args:
+        degradations: 当前帧所有检出的劣化项
+        cfg:          ReportConfig，包含 base_mos, decay_factor, mos_model
+        frame_bgr:    原始帧图像（BGR uint8），clip_iqa 模式下必须提供
+
+    Returns:
+        (mos_score, MOSBreakdown) 元组
+    """
     from lqdd.models.report import PenaltyItem
 
+    # ------------------------------------------------------------------ #
+    # clip_iqa 分支：CLIP-IQA 直接预测帧级 MOS                            #
+    # ------------------------------------------------------------------ #
+    if cfg.mos_model == "clip_iqa":
+        if frame_bgr is None:
+            # 没有图像帧时无法运行，降级到 rule
+            import warnings
+            warnings.warn(
+                "mos_model='clip_iqa' 需要传入 frame_bgr 参数，当前降级到 rule 模式",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        else:
+            try:
+                from lqdd.mos.clip_iqa import predict_mos_clip_iqa
+
+                mos = predict_mos_clip_iqa(frame_bgr)
+                # CLIP-IQA 直接给出帧级 MOS，构造一个简洁的 breakdown 记录
+                breakdown = MOSBreakdown(
+                    base_mos=mos,
+                    total_penalty=0.0,
+                    cap_applied=False,
+                    cap_reason="mos_model=clip_iqa，分数由 CLIP-IQA 直接预测",
+                    penalties=[],
+                )
+                return mos, breakdown
+            except ImportError as exc:
+                import warnings
+                warnings.warn(
+                    f"CLIP-IQA 不可用（{exc}），降级到 rule 模式。"
+                    "安装方法：pip install pyiqa torch torchvision setuptools",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+            except Exception as exc:
+                import warnings
+                warnings.warn(
+                    f"CLIP-IQA 推理失败（{exc}），降级到 rule 模式",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+
+    # ------------------------------------------------------------------ #
+    # internal 分支：预留接口                                               #
+    # ------------------------------------------------------------------ #
+    elif cfg.mos_model == "internal":
+        try:
+            from lqdd.mos.internal_model import predict_mos  # type: ignore[import-not-found]
+            return predict_mos(degradations, cfg, frame_bgr)
+        except ImportError:
+            import warnings
+            warnings.warn(
+                "mos_model='internal' 但 lqdd.mos.internal_model 未实现，降级到 rule",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
+    # ------------------------------------------------------------------ #
+    # rule 路径（默认 / 降级）                                              #
+    # 按 mos_impact 绝对值降序，后续项以 decay_factor^index 衰减            #
+    # ------------------------------------------------------------------ #
     sorted_items = sorted(degradations, key=lambda d: abs(d.mos_impact), reverse=True)
     penalties: list[PenaltyItem] = []
     total = 0.0
@@ -96,7 +190,7 @@ class ReportGenerator:
         vlm_ms: float = 0.0,
         judge_ms: float = 0.0,
     ) -> QualityReport:
-        mos, breakdown = compute_mos(degradations, self.config)
+        mos, breakdown = compute_mos(degradations, self.config, frame_bgr=frame_input.frame)
         perf = PerformanceMetrics(
             total_ms=perf.total_ms,
             global_scan_ms=perf.global_scan_ms,

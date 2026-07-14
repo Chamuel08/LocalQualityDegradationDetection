@@ -203,6 +203,7 @@
             "detection",
             "vlm_confirm",
             "judge",
+            "agent_step",
             "aggregation"
           ]
         },
@@ -222,8 +223,26 @@
         "max_rounds_reached": { "type": "boolean" },
         "vlm_calls": { "type": "integer", "minimum": 0 },
         "judge_assessment": {
-          "type": "string",
-          "enum": ["consistent", "uncertain", "inconsistent"]
+          "type": ["string", "null"],
+          "enum": ["consistent", "uncertain", "inconsistent", null]
+        },
+        "agent_driven_vlm": { "type": "boolean" },
+        "agent_steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "step": { "type": "integer", "minimum": 1 },
+              "thought": { "type": "string" },
+              "action": {
+                "type": "string",
+                "enum": ["vlm_analyze", "rerun_detector", "dispatch_compression", "accept"]
+              },
+              "reason": { "type": ["string", "null"] },
+              "observation": { "type": "string" },
+              "latency_ms": { "type": "number", "minimum": 0 }
+            }
+          }
         }
       }
     },

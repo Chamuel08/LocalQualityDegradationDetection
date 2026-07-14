@@ -9,6 +9,7 @@ from lqdd.detectors.base import (
     clip_bbox,
     compute_texture_loss_score,
     foreground_mask_from_scan,
+    is_ai_generated_style,
     localize_texture_loss_mask,
 )
 from lqdd.detectors.helpers import make_degradation_item
@@ -42,6 +43,13 @@ class BlurArtifactDetector:
         texture_loss = compute_texture_loss_score(crop, self.config.texture_var_reference)
         lap_var = float(cv2.Laplacian(crop, cv2.CV_64F).var())
         if texture_loss < self.config.texture_loss_threshold:
+            return []
+
+        # AI 合成图（扩散模型）天然具有"柔和"低纹理风格，
+        # compute_texture_loss_score 基于 reference_var=2400 会把它误判为模糊。
+        # 用 is_ai_generated_style() 识别此类图像并直接跳过，
+        # 避免将 AI 风格柔化报告为 blur_artifact（误判根因也错误，encoding_loss）。
+        if is_ai_generated_style(gray):
             return []
 
         roi = fg.copy()

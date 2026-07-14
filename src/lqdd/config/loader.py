@@ -89,6 +89,12 @@ class ReportConfig:
     base_mos: float = 4.5
     decay_factor: float = 0.7
     system_version: str = "0.1.0"
+    # MOS 拟合模型选择：
+    #   "rule"      - 默认，使用硬编码 mos_impact + 衰减公式（当前实现）
+    #   "clip_iqa"  - 接入开源 CLIP-IQA 模型（需安装 clip-iqa 依赖）
+    #   "internal"  - 接入内部拟合模型（需实现 lqdd.mos.internal_model）
+    # 扩展方式：在 compute_mos() 中按此字段分发到对应实现。
+    mos_model: str = "rule"
 
 
 @dataclass

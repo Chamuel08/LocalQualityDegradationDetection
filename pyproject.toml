@@ -21,7 +21,18 @@ dependencies = [
 [project.optional-dependencies]
 # mediapipe: optional upgrade for experimental hand_anomaly (fallback works without it)
 mediapipe = ["mediapipe>=0.10"]
-full = ["mediapipe>=0.10"]
+
+# clip_iqa: enables mos_model="clip_iqa" in ReportConfig
+# Uses pyiqa (IQA-PyTorch) + CLIP-IQA (ICCV 2023) for no-reference perceptual quality prediction.
+# Install: pip install "lqdd[clip_iqa]" or pip install pyiqa torch torchvision setuptools
+clip_iqa = [
+    "pyiqa>=0.1.10",
+    "torch>=2.0",
+    "torchvision>=0.15",
+    "setuptools>=60",       # provides pkg_resources required by openai-clip
+]
+
+full = ["mediapipe>=0.10", "pyiqa>=0.1.10", "torch>=2.0", "torchvision>=0.15", "setuptools>=60"]
 dev = ["pytest>=7.4", "Pillow>=10.0"]
 
 [project.scripts]

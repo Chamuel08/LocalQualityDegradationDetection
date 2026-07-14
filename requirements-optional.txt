@@ -1,10 +1,22 @@
-# Optional enhancement — NOT required for core pipeline
+# Optional enhancements — NOT required for core pipeline
 #
-# mediapipe enables MediaPipe Hands geometry path inside the experimental
-# hand_anomaly detector. Without it, hand_anomaly still runs using a
-# heuristic ROI + edge-density fallback (lower quality; no benchmark GT).
+# ── mediapipe ─────────────────────────────────────────────────────────────────
+# Enables MediaPipe Hands geometry path in the experimental hand_anomaly
+# detector. Without it, hand_anomaly runs via heuristic ROI + edge-density
+# fallback (lower quality; no benchmark GT). See README → hand_anomaly
 #
-# See README.md → Architecture → hand_anomaly
+# ── clip_iqa ──────────────────────────────────────────────────────────────────
+# Enables mos_model="clip_iqa" in ReportConfig.
+# Uses pyiqa (IQA-PyTorch) + CLIP-IQA (ICCV 2023) for no-reference perceptual
+# quality prediction. Score range [0,1] mapped linearly to MOS [1,5].
+# Provides stronger justification than the rule-based decay formula,
+# especially for AI-generated content.
+# Install: pip install pyiqa torch torchvision setuptools
+# Or:      pip install "lqdd[clip_iqa]"
 -r requirements.txt
 mediapipe>=0.10
+pyiqa>=0.1.10
+torch>=2.0
+torchvision>=0.15
+setuptools>=60
 -e .

@@ -9,6 +9,7 @@ from lqdd.detectors.base import (
     clip_bbox,
     compute_mosaic_score,
     detection_roi_mask,
+    is_ai_generated_style,
     localize_mosaic_mask,
 )
 from lqdd.detectors.helpers import make_degradation_item
@@ -32,6 +33,13 @@ class MosaicArtifactDetector:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         score = compute_mosaic_score(gray)
         if score < self.config.score_threshold:
+            return []
+
+        # compute_mosaic_score 的 flat_ratio 分量会在 AI 合成图的大面积平滑背景上虚高：
+        # AI 图的背景色块平整，8×8 block 方差天然 < 12，导致 flat_ratio 接近 1，
+        # 从而使总分虚假超过阈值，将"AI 风格平滑"误判为"马赛克"。
+        # 当检测到 AI 合成风格时，直接跳过马赛克检测。
+        if is_ai_generated_style(gray):
             return []
 
         roi = detection_roi_mask(scan_output, h, w)

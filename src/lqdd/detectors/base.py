@@ -293,12 +293,53 @@ def compute_blockiness_score(gray: np.ndarray) -> float:
 
 
 def compute_texture_loss_score(gray: np.ndarray, reference_var: float = 2400.0) -> float:
-    """Rises when high-frequency energy drops (blur / compression_hf)."""
+    """Rises when high-frequency energy drops (blur / compression_hf).
+
+    注意：reference_var=2400 是以真实摄影/视频图像为基准校准的。
+    AI 合成图（扩散模型等）天然具有低 Laplacian 方差的"柔和"风格，
+    对此类图像请先用 is_ai_generated_style() 检查，再决定是否信任本分数。
+    """
     lap = cv2.Laplacian(gray, cv2.CV_64F)
     var = float(lap.var())
     if reference_var <= 0:
         return 0.0
     return max(0.0, (reference_var - var) / reference_var)
+
+
+def is_ai_generated_style(gray: np.ndarray, lap_var_threshold: float = 80.0) -> bool:
+    """启发式判断图像是否具有 AI 合成风格（低高频纹理 + 高平滑度）。
+
+    AI 扩散模型生成的图像通常具有以下特征：
+    1. 全图 Laplacian 方差极低（天然柔和，不是压缩失真导致）
+    2. 像素值分布平滑，没有真实摄影中的高频噪声
+    3. 灰度直方图呈平缓宽峰，方差较小
+
+    这些特征会导致 compression_artifact / blur / mosaic 检测器产生大量误报，
+    需要在检测前识别并做专项处理（提升阈值或标注为 generation_artifact）。
+
+    Args:
+        gray: 灰度图（uint8）
+        lap_var_threshold: Laplacian 方差低于此值时认为具有 AI 合成风格。
+            真实摄影图通常 > 200；AI 合成图通常 < 80。
+
+    Returns:
+        True 表示图像很可能是 AI 合成风格，应抑制基于纹理损失的误报。
+    """
+    lap = cv2.Laplacian(gray, cv2.CV_64F)
+    lap_var = float(lap.var())
+    if lap_var >= lap_var_threshold:
+        return False
+
+    # 进一步确认：检查梯度分布是否异常平滑
+    # AI 合成图的梯度直方图峰值集中，真实图片梯度分布更分散
+    sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+    sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+    grad_mag = np.sqrt(sobel_x ** 2 + sobel_y ** 2)
+    grad_std = float(grad_mag.std())
+
+    # 极低 Laplacian 方差 + 梯度标准差也很小 → 强 AI 合成信号
+    # 若只有低 lap_var 但梯度标准差较大（如真实模糊图），不算 AI 风格
+    return grad_std < 25.0
 
 
 def foreground_mask_from_scan(scan_output: GlobalScanOutput, h: int, w: int) -> np.ndarray:

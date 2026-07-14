@@ -13,6 +13,7 @@ from lqdd.detectors.base import (
     compute_blockiness_score,
     compute_texture_loss_score,
     detection_roi_mask,
+    is_ai_generated_style,
     localize_blockiness_bbox,
     localize_blockiness_mask,
     localize_texture_loss_bbox,
@@ -169,6 +170,12 @@ class CompressionArtifactDetector:
         edge_block = blockiness_on_mask(gray, scan_output.edge_mask) if scan_output.edge_mask is not None else None
         edge_ratio = (edge_block / block) if edge_block is not None and block > 0 else None
 
+        # AI 合成图（扩散模型等）天然具有极低 Laplacian 方差，导致 texture_loss_score
+        # 接近 1.0，若不加以识别会产生大量误报（将 AI 柔和风格误判为压缩失真）。
+        # 当检测到 AI 合成风格时，texture_loss 分支整体跳过，只保留 DCT blockiness 路径
+        # （真实压缩 blockiness 不受 AI 风格影响）。
+        ai_style = is_ai_generated_style(gray)
+
         if block >= cfg.blockiness_coarse_threshold:
             return CompressionSignals(
                 blockiness_score=block,
@@ -184,7 +191,9 @@ class CompressionArtifactDetector:
                     f"超过阈值 {cfg.blockiness_threshold}"
                 ),
             )
-        if texture >= cfg.texture_loss_threshold:
+        if texture >= cfg.texture_loss_threshold and not ai_style:
+            # ai_style=True 时跳过：AI 合成图低 Laplacian 方差是正常风格，
+            # 不代表真实的高频信息丢失，不应被判为压缩伪影。
             return CompressionSignals(
                 blockiness_score=block,
                 texture_loss_score=texture,
