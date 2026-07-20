@@ -35,8 +35,13 @@ clip_iqa = [
 full = ["mediapipe>=0.10", "pyiqa>=0.1.10", "torch>=2.0", "torchvision>=0.15", "setuptools>=60"]
 dev = ["pytest>=7.4", "Pillow>=10.0"]
 
+# gui: enables the Gradio web GUI + pywebview native window (lqdd-gui)
+# Install: pip install "lqdd[gui]"  then run: lqdd-gui
+gui = ["gradio>=4.20", "pywebview>=4.0"]
+
 [project.scripts]
 lqdd = "lqdd.cli.main:main"
+lqdd-gui = "lqdd.ui.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

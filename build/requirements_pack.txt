@@ -1,0 +1,15 @@
+# 打包专用依赖 — LQDD GUI 可执行文件
+#
+# 基于 requirements.txt，去除重可选依赖（torch/pyiqa/mediapipe），
+# 加入 GUI（gradio + pywebview）与打包工具。
+# 打包后 MOS 降级为 rule，hand_anomaly 降级为边缘密度 fallback。
+# Ollama 与模型权重不打包，需用户另装。
+
+-r ../requirements.txt
+
+# ---- GUI ----
+gradio>=4.20
+pywebview>=4.0
+
+# ---- 打包工具 ----
+pyinstaller>=6.0

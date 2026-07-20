@@ -19,4 +19,11 @@ pyiqa>=0.1.10
 torch>=2.0
 torchvision>=0.15
 setuptools>=60
+
+# ── gui ───────────────────────────────────────────────────────────────────
+# Enables the Gradio web GUI + pywebview native window (lqdd-gui).
+# Install: pip install -r requirements-optional.txt  then run: lqdd-gui
+# Or:      pip install "lqdd[gui]"
+gradio>=4.20
+pywebview>=4.0
 -e .

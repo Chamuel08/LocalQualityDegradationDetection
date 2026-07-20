@@ -242,6 +242,39 @@ class MyCustomAgent(JudgeClient):
 orc = AgentOrchestrator(config, judge_client=MyCustomAgent())
 ```
 
+### 图形界面（`lqdd-gui`）
+
+基于 Gradio 的 web GUI + pywebview 原生窗口，复用 pipeline 与 mask 叠加渲染，覆盖单帧检测与 V2 视频多帧输入。
+
+```bash
+pip install "lqdd[gui]"          # gradio + pywebview（可选依赖）
+
+lqdd-gui                         # pywebview 原生窗口（默认）
+lqdd-gui --browser               # 浏览器回退（http://127.0.0.1:7860）
+lqdd-gui --port 8000             # 自定义端口
+```
+
+界面布局：
+- **左侧输入区**：单帧图片上传 / 视频上传（Tab 切换）+ 模式 Radio（V1 Agent / v0.1 基线）+ 配置路径
+- **右侧结果区**：mask 叠加预览图 + MOS/严重度总览 + 劣化列表表 + Agent 决策轨迹表 + `vlm_discover` 主动发现 + 视频 flicker 聚合 + 完整 JSON（可折叠）
+
+> V1 模式需 Ollama 已运行；不可用时 Agent 自动规则降级，GUI 不阻塞。
+
+### 打包可执行文件（`build/`）
+
+把 GUI 打包成独立可执行文件（PyInstaller），运行时启动本地 server 并打开 pywebview 原生窗口。
+
+```bash
+bash build/build.sh              # 产出 dist/lqdd-gui/lqdd-gui
+./dist/lqdd-gui/lqdd-gui         # 启动原生窗口
+```
+
+打包说明：
+- `build/build.sh`：venv-pack → pip install → pyinstaller → `dist/lqdd-gui/`
+- `build/app.spec`：`collect_all` 收集 gradio/pywebview/cv2；**排除** torch/pyiqa/mediapipe（重依赖，体积太大）
+- **不含 Ollama / 模型权重**：需另装 Ollama 并 `ollama pull qwen2.5vl:7b` / `qwen2.5:1.5b`
+- **降级**：打包后 MOS 用 `rule` 后端，`hand_anomaly` 用边缘密度 fallback
+
 ---
 
 ## 结果展示
@@ -531,7 +564,13 @@ report:
 │   │   ├── fast_pipeline.py     # v0.1
 │   │   ├── agent_pipeline.py    # V1
 │   │   └── video_clip_runner.py # V2：多帧输入包装器 + TemporalFlicker 聚合
+│   ├── ui/                     # 图形界面（可选，gradio + pywebview）
+│   │   └── app.py              # lqdd-gui 入口：单帧/视频 GUI + 原生窗口
 │   └── report/               # JSON / HTML 报告构建（含 compute_mos）
+├── build/                     # PyInstaller 打包体系（可执行文件）
+│   ├── build.sh               # 一键构建脚本
+│   ├── app.spec               # PyInstaller spec
+│   └── requirements_pack.txt  # 打包专用依赖
 ├── docs/demo/                # 演示素材（合成人像 + 7 种劣化）
 ├── benchmark/                # 批量评测脚本
 ├── scripts/                  # benchmark 生成、Demo 资源
