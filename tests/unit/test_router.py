@@ -40,4 +40,7 @@ def test_route_dispatches_detectors() -> None:
     ctx = AgentContext()
     dispatched = route_nominations(scan, cfg, ctx)
     assert "edge_bleed" in dispatched
-    assert any(d.decision == "vlm_pending" for d in ctx.routing_decisions)
+    # ReAct 架构下路由器不再产出 vlm_pending；灰区项统一标记为 dispatch，
+    # 是否调用 VLM 由 Agent 在后续步骤自主决定。
+    grey = [d for d in ctx.routing_decisions if d.confidence_band == "grey"]
+    assert grey and all(d.decision == "dispatch" for d in grey)

@@ -23,11 +23,13 @@ def _scan(h: int, w: int, **kwargs) -> GlobalScanOutput:
 
 
 def test_blur_detector_on_gaussian_blur() -> None:
-    blurred = cv2.GaussianBlur(
-        np.random.default_rng(2).integers(0, 255, (240, 320, 3), dtype=np.uint8),
-        (0, 0),
-        sigmaX=7.0,
-    )
+    # 带结构的纹理图 + 细高频噪声 + 轻度高斯模糊：模拟真实模糊导致的高频损失，
+    # 但 lap_var 仍 >= 80（不被 is_ai_generated_style 误判为 AI 合成柔和风格而跳过）。
+    rng = np.random.default_rng(2)
+    small = rng.integers(0, 255, (60, 80, 3), dtype=np.uint8)
+    base = cv2.resize(small, (320, 240), interpolation=cv2.INTER_LINEAR)
+    base = cv2.add(base, rng.integers(0, 120, (240, 320, 3), dtype=np.uint8))
+    blurred = cv2.GaussianBlur(base, (0, 0), sigmaX=0.8)
     h, w = blurred.shape[:2]
     fg = np.ones((h, w), dtype=bool)
     detector = BlurArtifactDetector(BlurConfig(texture_loss_threshold=0.25))

@@ -42,13 +42,29 @@ class VLMResult:
 
 
 @dataclass
+class VLMDiscoverFinding:
+    """vlm_discover 工具单条发现结果。
+
+    VLM 对全帧主动扫描后，将无法被 CV 规则量化的异常以此结构返回。
+    不包含 region_mask / bbox（VLM 无像素级定位能力），仅包含语义描述和估计影响。
+    """
+
+    degradation_type: str
+    region_description: str      # 自然语言描述异常区域（如"左上角手部多出一根手指"）
+    severity: str                # "minor" | "moderate" | "critical"
+    confidence: float            # VLM 自我报告的置信度 [0, 1]
+    reasoning: str               # 详细推理
+    mos_impact_estimate: float   # 仅参考，不参与最终 MOS 计算
+
+
+@dataclass
 class AgentAction:
-    action: Literal["vlm_analyze", "rerun_detector", "dispatch_compression", "accept"]
+    action: Literal["vlm_analyze", "rerun_detector", "dispatch_compression", "vlm_discover", "accept"]
     target_region: str | None = None
     detector: str | None = None
     nomination_threshold_delta: float | None = None
     reason: str | None = None
-    # ReAct Agent 新增：关联的检测项 ID（vlm_analyze 时使用）
+    # vlm_analyze 时使用：关联的检测项 ID
     degradation_id: str | None = None
 
 
@@ -84,6 +100,8 @@ class AgentMeta:
     agent_steps: list[dict[str, Any]] = field(default_factory=list)
     # ReAct Agent 新增：是否由 Agent 自主决策触发 VLM（而非硬编码路由）
     agent_driven_vlm: bool = False
+    # vlm_discover 发现的主动发现结果列表
+    vlm_discover_findings: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -108,3 +126,5 @@ class AgentContext:
     judge_ms: float = 0.0
     # ReAct Agent 新增：记录所有 Agent 自主决策步骤
     agent_steps: list[AgentStep] = field(default_factory=list)
+    # vlm_discover 主动发现结果（不进 degradations，单独记录）
+    vlm_discover_findings: list[VLMDiscoverFinding] = field(default_factory=list)

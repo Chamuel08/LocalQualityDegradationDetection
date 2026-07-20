@@ -38,11 +38,13 @@ def test_compression_detects_blockiness() -> None:
 def test_compression_detects_texture_loss() -> None:
     import cv2
 
-    blurred = cv2.GaussianBlur(
-        np.random.default_rng(1).integers(0, 255, (240, 135, 3), dtype=np.uint8),
-        (0, 0),
-        sigmaX=6.0,
-    )
+    # 带结构的纹理图 + 细高频噪声 + 轻度高斯模糊：模拟真实压缩导致的高频损失，
+    # 但 lap_var 仍 >= 80（不被 is_ai_generated_style 误判为 AI 合成柔和风格而跳过）。
+    rng = np.random.default_rng(1)
+    small = rng.integers(0, 255, (60, 40, 3), dtype=np.uint8)
+    base = cv2.resize(small, (135, 240), interpolation=cv2.INTER_LINEAR)
+    base = cv2.add(base, rng.integers(0, 120, (240, 135, 3), dtype=np.uint8))
+    blurred = cv2.GaussianBlur(base, (0, 0), sigmaX=0.8)
     h, w = blurred.shape[:2]
     detector = CompressionArtifactDetector(
         CompressionConfig(texture_loss_threshold=0.35, blockiness_coarse_threshold=1.4)

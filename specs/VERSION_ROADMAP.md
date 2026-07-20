@@ -27,13 +27,15 @@
 
 | 能力 | v0.1 GitHub MVP | V1 产品 | V2 |
 |------|-----------------|---------|-----|
-| 输入 | 离线 badcase 单帧 | 离线 badcase 单帧 | 视频 clip |
-| 流水线 | **固定** GlobalScan → 9 检测器 → Report | **ReAct Agent** 动态调度 + 反馈循环 | V1 + 时序 |
-| 子检测器 | 9 类（6/8 在 demo 上可用，见 README） | 同 v0.1（9 类） | + temporal_flicker |
+| 输入 | 离线 badcase 单帧 | 离线 badcase 单帧 | 视频 clip（`VideoClipRunner`） |
+| 流水线 | **固定** GlobalScan → 9 检测器 → Report | **ReAct Agent** 动态调度 + 反馈循环 | V1 + 时序聚合 |
+| 子检测器 | 9 类（6/8 在 demo 上可用，见 README） | 同 v0.1（9 类） | + `temporal_flicker`（帧间层） |
 | VLM 视觉确认 | ❌ | ✅ **必需**（Fast Mode，由 LLM Agent 自主触发） | ✅ |
 | LLM Agent（自主决策） | ❌ | ✅ **必需**（ReAct 循环，Observe→Think→Act） | ✅ |
 | 独立 LLM Judge 阶段 | ❌ | ❌（已被 ReAct Agent 替代；旧 Judge 保留作降级路径） | — |
-| Deep Mode | ❌ | ❌（`--mode deep` 返回 exit 2，未实现） | ✅ |
+| Agent 主动发现（vlm_discover） | ❌ | ✅（V1 新增工具，LLM 可自主触发） | ✅ |
+| Deep Mode | ❌ | ❌（`--mode deep` 返回 exit 2，未实现） | 推迟（vlm_discover 已满足核心需求） |
+| PatchCore 异常检测 | ❌ | ❌ | ❌（违反无参考原则，不建议实现） |
 | 外部服务 | 零依赖 | Ollama 或 API（VLM + LLM） | 同 V1 |
 | Spec Kit feature | `001-v0-fast-mvp` | `002-v1-agent-layer` | TBD |
 
@@ -104,6 +106,7 @@ VLM 粗分（全帧）→ 按清单调度子检测器量化 → Report
 | `vlm_analyze` | 对指定/未确认检测项调用 VLM 视觉确认 |
 | `rerun_detector` | 调整阈值重跑**单个**检测器（delta ∈ [-0.15, -0.05]） |
 | `dispatch_compression` | MOS 低且无 compression 检出时追加压缩伪影检测 |
+| `vlm_discover` | **V2 新增**：对全帧主动扫描发现 CV 规则检不到的语义异常（AI 生成伪影等），每帧最多调用 1 次，结果写入 `agent_meta.vlm_discover_findings` |
 | `accept` | 接受当前结果，终止循环 |
 
 完整定义见 `002-v1-agent-layer/contracts/llm-judge.schema.json`（旧 Judge 输出，向后兼容）与 `src/lqdd/agent/prompts.py`（ReAct `AGENT_SYSTEM_PROMPT`）。
@@ -140,7 +143,17 @@ v0.1 无上述组件，主链路不依赖外部服务。
 1. **001 v0.1** — fixed pipeline + 子检测器 + CLI（原始切片 2 检测器，后续扩展至 9 类）
 2. **002 V1 Agent** — VLMReasoner + LLMJudge + AgentOrchestrator + 反馈循环
 3. **V1 检测器补全** — face / hair / hand / background（可与 002 并行部分）
-4. **V2** — 视频 + TemporalFlicker
+4. **V2** — vlm_discover（✅）+ VideoClipRunner（✅）+ TemporalFlicker（✅）
+
+## 8. V2 实现决策记录
+
+| 功能 | 决策 | 原因 |
+|------|------|------|
+| `vlm_discover` 工具 | ✅ **已实现** | 改动面小（新增一个工具），直接补充 CV 盲区 |
+| `VideoClipRunner` 包装器 | ✅ **已实现** | 外层包装，不改单帧接口，零侵入 |
+| `TemporalFlicker` 检测器 | ✅ **已实现** | 帧间聚合层调用，不进 ALL_DETECTOR_NAMES |
+| Deep Mode（VLM 先行） | ⏸ **推迟** | `vlm_discover` 已能满足核心需求，Deep Mode 重构代价高且职责冲突 |
+| PatchCore / 预训练异常检测 | ❌ **不实现** | 违反系统「无参考」核心原则；需要维护正常样本 memory bank |
 
 ---
 

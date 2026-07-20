@@ -197,7 +197,7 @@ See:
 
 ## Deferred (Out of 002 Scope)
 
-- Deep Mode VLM 粗分（`--mode deep` 完整实现，V2）
-- `hand_anomaly` 多指 / 粘连 / 手部模糊（实验性 MVP）
-- TemporalFlicker（V2）
-- 视频 clip 输入
+- Deep Mode VLM 粗分（`--mode deep` 完整实现，V2，已推迟；`vlm_discover` 已覆盖核心主动发现需求）
+- `hand_anomaly` CV 检测器多指 / 粘连 / 手部模糊（实验性 MVP；`vlm_discover` 工具可由 VLM 主动发现手部语义异常）
+- ~~TemporalFlicker（V2）~~ → **已实现**（V2）
+- ~~视频 clip 输入~~ → **已实现**（V2：`VideoClipRunner`）

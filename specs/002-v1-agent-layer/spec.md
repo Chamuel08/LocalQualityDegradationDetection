@@ -80,10 +80,10 @@ LLM Agent 在每一步可从工具集 `{vlm_analyze, rerun_detector, dispatch_co
 
 ### Out of Scope (002)
 
-- Deep Mode 全量 VLM 粗分（V2）
+- Deep Mode 全量 VLM 粗分（V2，已推迟；`vlm_discover` 已覆盖核心主动发现需求）
 - LLM Judge 超过 2 轮迭代（ReAct 已替代该机制）
-- `hand_anomaly` spec 中的多指 / 粘连 / 手部模糊（实验性 MVP，未实现）
-- V2 视频 / TemporalFlicker
+- `hand_anomaly` CV 检测器的多指计数 / 粘连 / 手部模糊（实验性 MVP，CV 路径未实现；但 `vlm_discover` 工具可由 VLM 主动发现手部语义异常如多指，见 V2）
+- ~~V2 视频 / TemporalFlicker~~ → **已实现**（V2：`VideoClipRunner` + `TemporalFlicker`，见 [`VERSION_ROADMAP.md`](../VERSION_ROADMAP.md) 第 8 节）
 
 ## Success Criteria *(mandatory)*
 

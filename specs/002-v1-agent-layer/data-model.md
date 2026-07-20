@@ -138,6 +138,7 @@ AgentOrchestrator ──► AgentContext（agent_steps, merged_degradations, vlm
 | `vlm_analyze` | `degradation_id?`, `reason?` | 对指定项调用 VLM；未指定则对全部未确认项 |
 | `rerun_detector` | `detector`, `nomination_threshold_delta` | delta ∈ [-0.15, -0.05] |
 | `dispatch_compression` | `reason?` | 无参 |
+| `vlm_discover` | `reason?` | **V2 新增**：对全帧主动扫描发现 CV 规则检不到的语义异常；每帧最多 1 次；结果写入 `agent_meta.vlm_discover_findings`（不进 `degradations[]`，无 bbox/mask） |
 | `accept` | `reason?` | 终止循环 |
 
 ```python
@@ -219,9 +220,23 @@ judge:
 | `DegradationItem.vlm_reasoning` | 可选 null | Agent 触发 VLM 的项为对象 |
 | `agent_meta.judge_assessment` | — | ReAct 模式下为 `null`（无独立 Judge 阶段） |
 | `agent_meta.agent_driven_vlm` | — | `bool`，VLM 是否由 Agent 自主触发 |
-| `agent_meta.agent_steps` | — | `list[{step, thought, action, reason, observation, latency_ms}]` |
-| `decision_trace` | 5 stages | + `agent_step × N`（`vlm_confirm` 在 VLM 调用时出现） |
+| `agent_meta.agent_steps` | — | `list[{step, thought, action, reason, observation, latency_ms}]`；`action` 含 `vlm_discover`（V2） |
+| `agent_meta.vlm_discover_findings` | — | **V2**：`list[VLMDiscoverFinding]`，VLM 主动发现的语义异常（无 bbox/mask）；未触发时为 `[]` |
+| `decision_trace` | 5 stages | + `agent_step × N`（`vlm_confirm` 在 VLM 调用时出现；`vlm_discover` 在主动发现时出现） |
 | `performance` | 4 字段 | + `vlm_ms`, `judge_ms` |
+
+### VLMDiscoverFinding（V2 — vlm_discover 工具产出）
+
+VLM 对全帧主动扫描后发现的、CV 规则检测器无法量化的语义异常。**不进 `degradations[]`**（无像素级 bbox/mask），单独记录于 `agent_meta.vlm_discover_findings`。
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `degradation_type` | `str` | e.g. `hand_extra_finger` |
+| `region_description` | `str` | 自然语言描述异常区域（如"左下角人物左手出现 6 根手指"） |
+| `severity` | `str` | `minor` \| `moderate` \| `critical` |
+| `confidence` | `float` | VLM 自报告置信度 [0, 1] |
+| `reasoning` | `str` | VLM 推理过程 |
+| `mos_impact_estimate` | `float` | ≤ 0；**仅参考，不参与最终 MOS 计算** |
 
 **Backward compatibility**: v0.1 golden 无 `vlm_reasoning` / `agent_meta` — 仍通过 v0.1 schema。Agent 关闭时输出等同 v0.1。
 

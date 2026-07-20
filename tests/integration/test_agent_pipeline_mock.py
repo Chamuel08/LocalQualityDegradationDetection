@@ -38,7 +38,8 @@ def test_agent_pipeline_mock_vlm_and_judge(mock_vlm_fixture: Path, mock_judge_di
 
     stages = {t.stage for t in report.decision_trace}
     assert "routing" in stages
-    assert "judge" in stages
+    # ReAct 架构下独立的 judge 阶段已被 agent_step 取代（VLM 触发由 LLM 自主决策）
+    assert "agent_step" in stages
     assert report.agent_meta is not None
 
 

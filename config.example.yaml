@@ -82,6 +82,11 @@ vlm:
 
 judge:
   provider: ollama
+  # Agent 决策 LLM 模型选择：
+  #   qwen2.5:1.5b  — 默认，~1 GB，CPU 可运行，省资源；小模型对 MOS 量纲理解有限，
+  #                   在复杂场景下可能出现误判（如把正常 MOS 4.x 判为偏低触发补检）
+  #   qwen2.5:7b    — 推荐（有条件时），~4.7 GB，决策质量更高，需先 ollama pull qwen2.5:7b
+  #   其他 OpenAI 兼容模型亦可，改 provider 为 openai 并配置 OPENAI_API_BASE / OPENAI_API_KEY
   model: qwen2.5:1.5b
   host: http://localhost:11434
   timeout_ms: 45000

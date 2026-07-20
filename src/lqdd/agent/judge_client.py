@@ -20,7 +20,7 @@ from lqdd.models.report import DegradationItem, TraceEntry
 from lqdd.report.generator import compute_mos
 
 
-WHITELIST = frozenset({"vlm_analyze", "rerun_detector", "dispatch_compression", "accept"})
+WHITELIST = frozenset({"vlm_analyze", "rerun_detector", "dispatch_compression", "vlm_discover", "accept"})
 
 # ---------------------------------------------------------------------------
 # 抽象基类
@@ -140,11 +140,11 @@ class RuleBasedJudgeClient(JudgeClient):
                     mos = float(m.group(1)) if m else 4.5
                 except (ValueError, AttributeError):
                     mos = 4.5
-                if mos < 4.0:
+                if mos <= 3.5:
                     return {
                         "assessment": "inconsistent",
-                        "reasoning": "全局 MOS 偏低但未检出劣化，建议补检压缩伪影",
-                        "actions": [{"action": "dispatch_compression", "reason": "MOS 低无检出"}],
+                        "reasoning": "全局 MOS 异常偏低（≤3.5）但未检出劣化，建议补检压缩伪影",
+                        "actions": [{"action": "dispatch_compression", "reason": "MOS≤3.5 且无检出"}],
                         "needs_round2": True,
                     }
         return {
@@ -175,11 +175,11 @@ class RuleBasedJudgeClient(JudgeClient):
             if m_mos and m_count:
                 mos = float(m_mos.group(1))
                 count = int(m_count.group(1))
-                if mos < 4.0 and count == 0:
+                if mos <= 3.5 and count == 0:
                     return {
-                        "thought": f"MOS={mos:.2f} 偏低但无检出，规则建议补检压缩伪影",
+                        "thought": f"MOS={mos:.2f} 异常偏低（≤3.5）且无检出，规则建议补检压缩伪影",
                         "action": "dispatch_compression",
-                        "reason": "规则路由：MOS 低但无检出",
+                        "reason": "规则路由：MOS≤3.5 且无检出",
                     }
         except Exception:
             pass
@@ -263,9 +263,16 @@ def build_agent_observe_prompt(
     step: int,
     max_steps: int,
     history: list[AgentStep],
+    frame_bgr: "Any | None" = None,
 ) -> tuple[str, str]:
-    """返回 (system_prompt, user_prompt) 供 LLM decide() 使用。"""
-    mos, _ = compute_mos(degradations, report_cfg)
+    """返回 (system_prompt, user_prompt) 供 LLM decide() 使用。
+
+    frame_bgr: 可选原始帧（BGR uint8 numpy array）。
+        当 report_cfg.mos_model == "clip_iqa" 时传入，使 Agent 观察
+        到的 global_mos 与最终报告一致（由 CLIP-IQA 直接预测）。
+        不传时自动降级到 rule 衰减公式（行为与旧版相同）。
+    """
+    mos, _ = compute_mos(degradations, report_cfg, frame_bgr=frame_bgr)
     detections = [
         {
             "degradation_id": d.degradation_id,
@@ -274,6 +281,13 @@ def build_agent_observe_prompt(
             "degradation_type": d.degradation_type,
             "severity": d.severity,
             "mos_impact": round(d.mos_impact, 3),
+            # evidence.detail 提供具体数值依据（如 "Laplacian 方差 11 ≤ 85（偏糊）"），
+            # 帮助 Agent 判断是否值得 VLM 确认或补检，而非仅凭置信度决策。
+            "evidence_detail": (
+                d.evidence.detail
+                if d.evidence and hasattr(d.evidence, "detail") and d.evidence.detail
+                else None
+            ),
         }
         for d in degradations
     ]

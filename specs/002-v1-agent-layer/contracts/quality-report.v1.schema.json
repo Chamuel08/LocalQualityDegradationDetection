@@ -236,11 +236,26 @@
               "thought": { "type": "string" },
               "action": {
                 "type": "string",
-                "enum": ["vlm_analyze", "rerun_detector", "dispatch_compression", "accept"]
+                "enum": ["vlm_analyze", "rerun_detector", "dispatch_compression", "vlm_discover", "accept"]
               },
               "reason": { "type": ["string", "null"] },
               "observation": { "type": "string" },
               "latency_ms": { "type": "number", "minimum": 0 }
+            }
+          }
+        },
+        "vlm_discover_findings": {
+          "type": "array",
+          "description": "vlm_discover 工具的主动发现结果（V2）。VLM 对全帧扫描发现的 CV 规则检不到的语义异常；不含 bbox/mask，仅语义描述。空数组表示未触发或无发现。",
+          "items": {
+            "type": "object",
+            "properties": {
+              "degradation_type": { "type": "string" },
+              "region_description": { "type": "string" },
+              "severity": { "type": "string", "enum": ["minor", "moderate", "critical"] },
+              "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+              "reasoning": { "type": "string" },
+              "mos_impact_estimate": { "type": "number" }
             }
           }
         }

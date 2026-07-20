@@ -13,11 +13,12 @@ from lqdd.agent.judge_client import (
     parse_agent_step,
     run_judge,
 )
+from lqdd.agent.prompts import VLM_DISCOVER_PROMPT
 from lqdd.agent.router import route_nominations
 from lqdd.config.loader import AppConfig
 from lqdd.detectors.registry import build_detector_registry, run_detectors
 from lqdd.global_scan.scanner import GlobalScanner
-from lqdd.models.agent import AgentAction, AgentContext, AgentMeta, AgentStep
+from lqdd.models.agent import AgentAction, AgentContext, AgentMeta, AgentStep, VLMDiscoverFinding
 from lqdd.models.inputs import SingleFrameInput
 from lqdd.models.report import DegradationItem, PerformanceMetrics, QualityReport, TraceEntry
 from lqdd.report.generator import ReportGenerator
@@ -91,13 +92,21 @@ def _execute_rerun_detector(
     if det is None:
         return f"rerun_detector 失败：未知检测器 {action.detector}"
 
-    # 应用阈值 delta（如果检测器支持）
+    # 应用阈值 delta（如果检测器支持），执行后恢复原值，避免污染后续帧
+    orig_threshold = None
     if action.nomination_threshold_delta is not None:
         orig = getattr(det, "config", None)
         if orig and hasattr(orig, "nomination_threshold"):
+            orig_threshold = orig.nomination_threshold
             orig.nomination_threshold += action.nomination_threshold_delta
 
     new_results = det.detect(ctx.frame_input, ctx.scan_output)
+
+    # 恢复原始阈值（无论检测是否成功）
+    if orig_threshold is not None:
+        orig = getattr(det, "config", None)
+        if orig and hasattr(orig, "nomination_threshold"):
+            orig.nomination_threshold = orig_threshold
     # 去重：不重复添加已有同类型检测项
     existing_types = {d.degradation_type for d in ctx.merged_degradations}
     added = [r for r in new_results if r.degradation_type not in existing_types]
@@ -125,6 +134,93 @@ def _execute_dispatch_compression(
     return f"dispatch_compression 完成：新增 {len(new_results)} 个压缩伪影检测项"
 
 
+def _execute_vlm_discover(
+    ctx: AgentContext,
+    vlm_client: VLMClient,
+    config: AppConfig,
+) -> str:
+    """执行 vlm_discover 工具：让 VLM 对全帧主动扫描，发现 CV 规则检不到的语义异常。
+
+    与 vlm_analyze 的区别：
+    - vlm_analyze：对 CV 已有的检测项 ROI 做「确认」
+    - vlm_discover：对全帧做「主动发现」，输入是整帧图像而非 ROI
+
+    结果写入 ctx.vlm_discover_findings，不合并进 ctx.merged_degradations（无 bbox/mask）。
+    每帧最多执行一次；重复调用时跳过。
+    """
+    import base64
+    import json
+    import time
+
+    import cv2
+
+    if ctx.vlm_discover_findings:
+        return "vlm_discover 跳过：本帧已执行过主动发现"
+    if ctx.frame_input is None:
+        return "vlm_discover 失败：frame_input 不可用"
+    if ctx.vlm_calls_count >= config.vlm.max_calls_per_frame:
+        return "vlm_discover 跳过：VLM 调用次数已达上限"
+
+    frame = ctx.frame_input.frame
+    ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    if not ok:
+        return "vlm_discover 失败：帧编码失败"
+    b64 = base64.b64encode(buf.tobytes()).decode("ascii")
+
+    t0 = time.perf_counter()
+    raw = vlm_client.confirm(VLM_DISCOVER_PROMPT, b64)
+    latency_ms = (time.perf_counter() - t0) * 1000.0
+    ctx.vlm_calls_count += 1
+    ctx.vlm_ms += latency_ms
+
+    ctx.traces.append(
+        TraceEntry(
+            stage="vlm_discover",
+            module="VLMDiscover",
+            timestamp_ms=0.0,
+            duration_ms=latency_ms,
+            input_summary={"frame_id": ctx.frame_input.frame_id},
+            output_summary={"raw_response": str(raw)[:200] if raw else None},
+            decision="vlm_discover_complete" if raw else "vlm_discover_failed",
+            mode="fast",
+        )
+    )
+
+    if raw is None:
+        return "vlm_discover 失败：VLM 服务不可用"
+
+    # 解析 VLM 返回的 findings 列表
+    try:
+        data = raw if isinstance(raw, dict) else json.loads(str(raw))
+        findings_raw = data.get("findings", [])
+        if not isinstance(findings_raw, list):
+            findings_raw = []
+    except Exception:
+        return f"vlm_discover 完成（解析失败）：raw={str(raw)[:100]}"
+
+    for item in findings_raw:
+        if not isinstance(item, dict):
+            continue
+        try:
+            finding = VLMDiscoverFinding(
+                degradation_type=str(item.get("degradation_type", "unknown")),
+                region_description=str(item.get("region_description", "")),
+                severity=str(item.get("severity", "minor")),
+                confidence=float(item.get("confidence", 0.5)),
+                reasoning=str(item.get("reasoning", "")),
+                mos_impact_estimate=float(item.get("mos_impact_estimate", -0.1)),
+            )
+            ctx.vlm_discover_findings.append(finding)
+        except (TypeError, ValueError):
+            continue
+
+    overall = data.get("overall_assessment", "")
+    return (
+        f"vlm_discover 完成：发现 {len(ctx.vlm_discover_findings)} 条语义异常"
+        + (f"；总体评估：{overall}" if overall else "")
+    )
+
+
 # ---------------------------------------------------------------------------
 # ReAct Agent 主循环
 # ---------------------------------------------------------------------------
@@ -138,6 +234,7 @@ def run_react_agent(
     registry: dict,
     skipped_detectors: list[str],
     traces: list[TraceEntry],
+    frame_bgr: "Any | None" = None,
 ) -> list[DegradationItem]:
     """ReAct Agent 核心循环。
 
@@ -146,6 +243,9 @@ def run_react_agent(
       2. LLM 思考并自主选择下一步行动（Thought + Action）
       3. 执行工具，获取结果（Act + Observe）
       4. 重复直到 LLM 输出 accept 或达到最大步数
+
+    frame_bgr: 可选原始帧，当 config.report.mos_model == "clip_iqa" 时
+        传入，使 Agent 看到的 global_mos 与最终报告一致。
     """
     max_steps = config.agent.max_rounds * 3  # 给 Agent 充足的决策步数
     step = 1
@@ -161,6 +261,7 @@ def run_react_agent(
             step,
             max_steps,
             history,
+            frame_bgr=frame_bgr,
         )
 
         # --- Think + Act: LLM 自主决策 ---
@@ -233,6 +334,9 @@ def run_react_agent(
 
         elif action.action == "dispatch_compression":
             observation = _execute_dispatch_compression(ctx, config, registry)
+
+        elif action.action == "vlm_discover":
+            observation = _execute_vlm_discover(ctx, vlm_client, config)
 
         agent_step.observation = observation
         history.append(agent_step)
@@ -353,7 +457,9 @@ class AgentOrchestrator:
         vlm_client = build_vlm_client(self.config.vlm, self._vlm_client)
         judge_client = build_judge_client_from_config(self.config, self._judge_client)
 
-        skipped = [d for d in ("edge_bleed", "compression_artifact") if d not in dispatched]
+        # 计算所有未被派发运行的检测器，让 Agent 能看到完整的跳过列表
+        all_detector_names = list(self.registry.keys())
+        skipped = [d for d in all_detector_names if d not in dispatched]
 
         ctx.merged_degradations = run_react_agent(
             ctx=ctx,
@@ -363,6 +469,7 @@ class AgentOrchestrator:
             registry=self.registry,
             skipped_detectors=skipped,
             traces=traces,
+            frame_bgr=frame_input.frame,
         )
 
         # --- Stage 6: aggregation ---
@@ -412,6 +519,17 @@ class AgentOrchestrator:
                 for s in ctx.agent_steps
             ],
             agent_driven_vlm=agent_driven_vlm,
+            vlm_discover_findings=[
+                {
+                    "degradation_type": f.degradation_type,
+                    "region_description": f.region_description,
+                    "severity": f.severity,
+                    "confidence": round(f.confidence, 3),
+                    "reasoning": f.reasoning,
+                    "mos_impact_estimate": round(f.mos_impact_estimate, 3),
+                }
+                for f in ctx.vlm_discover_findings
+            ],
         )
 
         vlm_summary = [
