@@ -87,7 +87,6 @@ class FaceArtifactDetector:
                 region_type=RegionType.FACE,
                 severity=Severity.MINOR.value,
                 confidence=0.68 if blur_hit else 0.72,
-                mos_impact=-0.22,
                 bbox=bbox,
                 region_mask=region_mask,
                 method="face_roi_exposure_laplacian",

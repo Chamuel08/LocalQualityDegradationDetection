@@ -86,15 +86,13 @@ class HandAnomalyConfig:
 
 @dataclass
 class ReportConfig:
-    base_mos: float = 4.5
-    decay_factor: float = 0.7
     system_version: str = "0.1.0"
-    # MOS 拟合模型选择：
-    #   "rule"      - 默认，使用硬编码 mos_impact + 衰减公式（当前实现）
-    #   "clip_iqa"  - 接入开源 CLIP-IQA 模型（需安装 clip-iqa 依赖）
-    #   "internal"  - 接入内部拟合模型（需实现 lqdd.mos.internal_model）
-    # 扩展方式：在 compute_mos() 中按此字段分发到对应实现。
-    mos_model: str = "rule"
+    # MOS 预测后端（帧级总分由模型直接预测，不再硬编码 per-distortion 扣分）：
+    #   "clip_iqa"  - 默认，CLIP-IQA 无参考画质预测（需 pip install "lqdd[clip_iqa]"）
+    #                 依赖缺失 / 权重下载失败 / 推理异常时，overall_mos 置为 null 并在
+    #                 mos_unavailable_reason 给出原因，绝不回退到任何硬编码默认分。
+    #   "internal"  - 预留，需自行实现 lqdd.mos.internal_model
+    mos_model: str = "clip_iqa"
 
 
 @dataclass

@@ -116,10 +116,10 @@
 ### Key Entities
 
 - **SingleFrameInput**: 帧图像路径、frame_id、可选 metadata、ignore_regions
-- **DegradationItem**: 劣化类型、severity、confidence、mos_impact、bbox、evidence、detector
+- **DegradationItem**: 劣化类型、severity、confidence、bbox、evidence、detector（不再含 mos_impact）
 - **Evidence**: method、metric、value、threshold、detail
 - **TraceEntry**: stage、module、decision、duration_ms
-- **QualityReport**: overall_mos、degradations、decision_trace、processing_time_ms
+- **QualityReport**: overall_mos（CLIP-IQA 预测，可为 null）、mos_unavailable_reason、degradations、decision_trace、processing_time_ms
 
 ## Success Criteria *(mandatory)*
 

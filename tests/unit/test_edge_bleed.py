@@ -47,7 +47,6 @@ def test_edge_bleed_detects_green_spill() -> None:
     item = items[0]
     assert item.detector == "edge_bleed"
     assert "绿" in item.evidence.detail or "溢出" in item.evidence.detail
-    assert item.mos_impact < 0
     assert item.root_cause_hypothesis.cause == "matting_error"
 
 

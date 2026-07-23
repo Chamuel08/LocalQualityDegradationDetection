@@ -18,6 +18,14 @@ from lqdd.report.viz_variants import (
 DEFAULT_VIZ_STYLE: MaskVizStyle = "contour_fill"
 
 
+def _mos_html(report: QualityReport) -> str:
+    """MOS 展示：有分时显示数值，不可用时显示原因（不回退默认分）。"""
+    if report.overall_mos is not None:
+        return f"{report.overall_mos:.3f}"
+    reason = report.mos_unavailable_reason or "MOS 不可用"
+    return f"<em>不可用</em>（{html.escape(reason)}）"
+
+
 def _encode_image_b64(frame_bgr: np.ndarray) -> str:
     ok, buf = cv2.imencode(".png", frame_bgr)
     if not ok:
@@ -108,7 +116,7 @@ def render_html_report(
 </head>
 <body>
   <h1>局部画质劣化检测报告</h1>
-  <p><strong>MOS</strong>: {report.overall_mos:.3f} &nbsp;
+  <p><strong>MOS</strong>: {_mos_html(report)} &nbsp;
      <strong>严重度</strong>: {html.escape(report.severity)}</p>
   {img_section}
   {deg_section}

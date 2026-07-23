@@ -149,7 +149,6 @@ class HandAnomalyDetector:
                 region_type=RegionType.HAND,
                 severity=Severity.MINOR.value,
                 confidence=0.66,
-                mos_impact=-0.18,
                 bbox=bbox,
                 region_mask=region_mask,
                 method=method,

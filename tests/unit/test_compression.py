@@ -32,7 +32,6 @@ def test_compression_detects_blockiness() -> None:
     assert items
     assert items[0].detector == "compression_artifact"
     assert items[0].evidence.metric == "blockiness_score"
-    assert items[0].mos_impact < 0
 
 
 def test_compression_detects_texture_loss() -> None:

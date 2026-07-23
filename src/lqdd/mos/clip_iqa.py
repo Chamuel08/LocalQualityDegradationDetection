@@ -21,7 +21,7 @@ _CLIP_IQA_DEVICE = None
 
 
 def _get_metric(device: str | None = None):
-    """懒加载 pyiqa clipiqa metric。缺失依赖时抛 ImportError（由上层捕获降级）。"""
+    """懒加载 pyiqa clipiqa metric。缺失依赖时抛 ImportError（由上层捕获后置 MOS=null，不回退）。"""
     global _CLIP_IQA_METRIC, _CLIP_IQA_DEVICE
     if _CLIP_IQA_METRIC is not None and (device is None or device == _CLIP_IQA_DEVICE):
         return _CLIP_IQA_METRIC
@@ -82,8 +82,8 @@ def predict_mos_clip_iqa(frame_bgr: np.ndarray, device: str | None = None) -> fl
         MOS 分数（float，范围 [1, 5]，保留 3 位小数）。
 
     Raises:
-        ImportError: pyiqa / torch 未安装（由 ``compute_mos`` 捕获后降级到 rule）。
-        Exception:   推理失败（由 ``compute_mos`` 捕获后降级到 rule）。
+        ImportError: pyiqa / torch 未安装（由 ``compute_mos`` 捕获后置 overall_mos=null，不回退默认分）。
+        Exception:   推理失败（由 ``compute_mos`` 捕获后置 overall_mos=null，不回退默认分）。
     """
     import torch
 

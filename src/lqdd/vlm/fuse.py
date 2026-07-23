@@ -20,14 +20,12 @@ def fuse_degradation(deg: DegradationItem, vlm: VLMResult) -> DegradationItem:
         fusion = "vlm_override"
         if vlm.is_degraded:
             out.severity = vlm.vlm_severity
-            out.mos_impact = min(deg.mos_impact, vlm.mos_impact_estimate)
     elif det_conf > 0.8:
         final_conf = det_conf
         fusion = "detector_override"
     else:
         final_conf = min(det_conf, vlm_conf)
         fusion = "uncertain"
-        out.mos_impact = min(deg.mos_impact, vlm.mos_impact_estimate)
 
     out.confidence = round(final_conf, 4)
     out.vlm_reasoning = {

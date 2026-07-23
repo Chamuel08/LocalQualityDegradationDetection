@@ -156,7 +156,7 @@ class AgentAction(TypedDict, total=False):
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `global_mos` | `float` | Round 1 预聚合或 base_mos 估计 |
+| `global_mos` | `float \| "unavailable"` | CLIP-IQA 预测的帧级 MOS；不可用时为字符串 "unavailable" |
 | `detections` | `list[dict]` | detector, confidence, degradation_type, severity |
 | `skipped_detectors` | `list[str]` | |
 | `vlm_skipped_count` | `int` | |

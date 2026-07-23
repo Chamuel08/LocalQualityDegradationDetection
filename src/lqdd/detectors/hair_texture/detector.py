@@ -98,7 +98,6 @@ class HairTextureDetector:
                 region_type=RegionType.HAIR,
                 severity=Severity.MINOR.value,
                 confidence=min(0.84, 0.58 + loss * 0.35),
-                mos_impact=-0.2,
                 bbox=bbox,
                 region_mask=region_mask,
                 method="laplacian_hair_vs_face",

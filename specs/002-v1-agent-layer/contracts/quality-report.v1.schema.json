@@ -31,7 +31,16 @@
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$"
     },
-    "overall_mos": { "type": "number", "minimum": 1.0, "maximum": 5.0 },
+    "overall_mos": {
+      "type": ["number", "null"],
+      "minimum": 1.0,
+      "maximum": 5.0,
+      "description": "帧级 MOS 总分，由无参考画质模型（默认 CLIP-IQA）直接预测并映射到 [1,5]。模型不可用时为 null，mos_unavailable_reason 给出原因，不回退默认分。"
+    },
+    "mos_unavailable_reason": {
+      "type": ["string", "null"],
+      "description": "overall_mos 为 null 时的原因；overall_mos 非 null 时为 null。"
+    },
     "severity": {
       "type": "string",
       "enum": ["good", "minor", "moderate", "severe", "critical"]
@@ -127,7 +136,6 @@
         "degradation_type",
         "severity",
         "confidence",
-        "mos_impact",
         "bbox",
         "frame_indices",
         "description",
@@ -148,7 +156,6 @@
           "enum": ["good", "minor", "moderate", "severe", "critical"]
         },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
-        "mos_impact": { "type": "number", "maximum": 0 },
         "bbox": {
           "type": "array",
           "minItems": 4,
@@ -283,31 +290,20 @@
         }
       }
     },
-    "PenaltyItem": {
-      "type": "object",
-      "description": "rule 后端求和明细项（调试用，非感知归因）。真正的归因看 degradations[]（detector/bbox/evidence/root_cause/vlm_reasoning），与本项无关。mos_model=clip_iqa 时 MOSBreakdown.penalties 为空，不产生本项。",
-      "required": ["source", "penalty", "reason"],
-      "properties": {
-        "source": { "type": "string", "description": "劣化来源 id（仅用于求和标识）" },
-        "penalty": { "type": "number", "description": "原始 mos_impact（启发式，非感知贡献）" },
-        "effective_penalty": { "type": "number", "description": "penalty × decay_factor^decay_index（求和中间量，非感知归因）" },
-        "decay_index": { "type": "integer", "minimum": 0, "description": "按 |penalty| 降序的叠加序号" },
-        "reason": { "type": "string" }
-      }
-    },
     "MOSBreakdown": {
       "type": "object",
-      "description": "帧级 MOS 总分的求和明细。MOS 与归因解耦：归因看 degradations[]，MOS 只是帧级一个总分。mos_model=clip_iqa 时由 CLIP-IQA 直接预测总分，penalties 为空。",
-      "required": ["base_mos", "total_penalty", "cap_applied", "penalties"],
+      "description": "帧级 MOS 总分的来源说明。MOS 与归因解耦：归因看 degradations[]，MOS 只是帧级一个总分，由无参考画质模型（默认 CLIP-IQA）直接预测。status=unavailable 时 mos 为 null 且 reason 给出原因，不回退默认分。",
+      "required": ["model", "mos", "status"],
       "properties": {
-        "base_mos": { "type": "number" },
-        "total_penalty": { "type": "number", "maximum": 0 },
-        "cap_applied": { "type": "boolean" },
-        "cap_reason": { "type": ["string", "null"] },
-        "penalties": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/PenaltyItem" }
-        }
+        "model": { "type": "string", "enum": ["clip_iqa", "internal"], "description": "MOS 预测后端" },
+        "mos": {
+          "type": ["number", "null"],
+          "minimum": 1.0,
+          "maximum": 5.0,
+          "description": "模型预测的帧级 MOS；不可用时为 null"
+        },
+        "status": { "type": "string", "enum": ["ok", "unavailable"] },
+        "reason": { "type": ["string", "null"], "description": "status=unavailable 时的原因；ok 时为 null" }
       }
     },
     "DegradationSummary": {

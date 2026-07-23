@@ -67,11 +67,9 @@ class BlurArtifactDetector:
 
         if texture_loss >= self.config.texture_loss_threshold * 1.35:
             severity = Severity.MODERATE.value
-            mos = -0.32
             conf = 0.74
         else:
             severity = Severity.MINOR.value
-            mos = -0.22
             conf = 0.62
 
         return [
@@ -81,7 +79,6 @@ class BlurArtifactDetector:
                 region_type=RegionType.BODY,
                 severity=severity,
                 confidence=conf,
-                mos_impact=mos,
                 bbox=bbox,
                 region_mask=region_mask,
                 method="laplacian_regional_blur",

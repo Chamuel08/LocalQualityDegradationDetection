@@ -55,14 +55,13 @@ hand_anomaly:  # experimental MVP — heuristic hand ROI; see specs/hand_anomaly
   min_hand_pixels: 250
 
 report:
-  base_mos: 4.5
-  decay_factor: 0.7
   system_version: "0.1.0"
-  # MOS 预测后端：
-  #   rule      — 默认，硬编码 mos_impact + 衰减公式（零依赖）
+  # MOS 预测后端（帧级总分由模型直接预测，不再硬编码 per-distortion 扣分）：
   #   clip_iqa  — CLIP-IQA 无参考画质预测（需 pip install "lqdd[clip_iqa]"）
+  #               依赖缺失 / 权重下载失败 / 推理异常时 overall_mos=null 并给出原因，
+  #               绝不回退到硬编码默认分。
   #   internal  — 预留，需自行实现 lqdd.mos.internal_model
-  mos_model: "rule"
+  mos_model: "clip_iqa"
 
 agent:
   enabled: true

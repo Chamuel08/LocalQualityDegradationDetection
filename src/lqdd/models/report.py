@@ -29,7 +29,6 @@ class DegradationItem:
     degradation_type: str
     severity: str
     confidence: float
-    mos_impact: float
     bbox: list[int]
     frame_indices: list[int]
     description: str
@@ -41,21 +40,21 @@ class DegradationItem:
 
 
 @dataclass
-class PenaltyItem:
-    source: str
-    penalty: float
-    effective_penalty: float
-    decay_index: int
-    reason: str
-
-
-@dataclass
 class MOSBreakdown:
-    base_mos: float
-    total_penalty: float
-    cap_applied: bool
-    cap_reason: str | None
-    penalties: list[PenaltyItem]
+    """帧级 MOS 总分的来源说明。
+
+    MOS 与归因解耦：归因（劣化是什么/在哪/为什么）看 ``degradations[]``，
+    MOS 只是帧级一个总分，由 ``model`` 指定的无参考画质模型直接预测。
+
+    - ``status="ok"``：``mos`` 为模型预测分（如 CLIP-IQA 映射到 [1,5]）。
+    - ``status="unavailable"``：模型不可用（依赖缺失/权重下载失败/推理异常/未提供帧），
+      ``mos=None``，``reason`` 给出具体原因；此时绝不回退到任何硬编码默认分。
+    """
+
+    model: str
+    mos: float | None
+    status: str
+    reason: str | None = None
 
 
 @dataclass
@@ -97,7 +96,7 @@ class QualityReport:
     frame_index: int
     report_timestamp: str
     system_version: str
-    overall_mos: float
+    overall_mos: float | None
     severity: str
     degradations: list[DegradationItem]
     decision_trace: list[TraceEntry]
@@ -110,6 +109,9 @@ class QualityReport:
     scenario_attribution: list[dict[str, Any]] | None = None
     # VLM 画质自然语言描述（D1：多模态画质归因深化）
     quality_caption: dict[str, Any] | None = None
+    # MOS 不可用时的原因（依赖缺失/权重下载失败/推理异常/未提供帧）。
+    # overall_mos 非 null 时本字段为 None。
+    mos_unavailable_reason: str | None = None
 
 
 def evidence_to_dict(e: Evidence) -> dict[str, Any]:
@@ -124,7 +126,6 @@ def degradation_to_dict(d: DegradationItem) -> dict[str, Any]:
         "degradation_type": d.degradation_type,
         "severity": d.severity,
         "confidence": d.confidence,
-        "mos_impact": d.mos_impact,
         "bbox": d.bbox,
         "region_mask_rle": d.region_mask_rle,
         "frame_indices": d.frame_indices,
@@ -148,12 +149,13 @@ def report_to_dict(report: QualityReport) -> dict[str, Any]:
         "frame_index": report.frame_index,
         "report_timestamp": report.report_timestamp,
         "system_version": report.system_version,
-        "overall_mos": round(report.overall_mos, 3),
+        "overall_mos": round(report.overall_mos, 3) if report.overall_mos is not None else None,
         "severity": report.severity,
         "degradations": [degradation_to_dict(d) for d in report.degradations],
         "decision_trace": [trace_to_dict(t) for t in report.decision_trace],
         "performance": asdict(report.performance),
         "vlm_reasoning_summary": report.vlm_reasoning_summary,
+        "mos_unavailable_reason": report.mos_unavailable_reason,
     }
     if report.mos_breakdown:
         out["mos_breakdown"] = asdict(report.mos_breakdown)

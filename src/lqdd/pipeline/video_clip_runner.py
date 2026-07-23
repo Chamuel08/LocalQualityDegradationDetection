@@ -43,10 +43,10 @@ class VideoClipReport:
     frame_count: int
     frame_reports: list[QualityReport]
     flicker_result: TemporalFlickerResult
-    aggregate_mos: float          # 逐帧 MOS 的均值（简单聚合）
-    worst_frame_mos: float
-    worst_frame_index: int        # 最差帧在 frame_reports 中的索引
-    degradation_summary: dict     # 各 degradation_type 跨帧出现次数
+    aggregate_mos: float | None          # 逐帧 MOS 的均值；全部不可用时为 None
+    worst_frame_mos: float | None
+    worst_frame_index: int               # 最差帧在 frame_reports 中的索引；无可用 MOS 时为 -1
+    degradation_summary: dict           # 各 degradation_type 跨帧出现次数
 
 
 class VideoClipRunner:
@@ -117,11 +117,19 @@ class VideoClipRunner:
             min_flicker_ratio=self.flicker_min_ratio,
         )
 
-        # --- 聚合 MOS ---
-        mos_list = [r.overall_mos for r in frame_reports]
-        aggregate_mos = float(np.mean(mos_list))
-        worst_mos = float(min(mos_list))
-        worst_idx = int(np.argmin(mos_list))
+        # --- 聚合 MOS（跳过 overall_mos 为 None 的帧，即 CLIP-IQA 不可用的帧）---
+        mos_list = [r.overall_mos for r in frame_reports if r.overall_mos is not None]
+        if mos_list:
+            aggregate_mos = round(float(np.mean(mos_list)), 3)
+            worst_mos = round(float(min(mos_list)), 3)
+            # worst_frame_index 指向第一个 overall_mos == min 的帧
+            worst_idx = next(
+                i for i, r in enumerate(frame_reports) if r.overall_mos == worst_mos
+            )
+        else:
+            aggregate_mos = None
+            worst_mos = None
+            worst_idx = -1
 
         # --- 跨帧 degradation 汇总 ---
         degradation_summary: dict[str, int] = {}
@@ -136,8 +144,8 @@ class VideoClipRunner:
             frame_count=n,
             frame_reports=frame_reports,
             flicker_result=flicker_result,
-            aggregate_mos=round(aggregate_mos, 3),
-            worst_frame_mos=round(worst_mos, 3),
+            aggregate_mos=aggregate_mos,
+            worst_frame_mos=worst_mos,
             worst_frame_index=worst_idx,
             degradation_summary=degradation_summary,
         )

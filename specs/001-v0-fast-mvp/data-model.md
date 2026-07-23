@@ -140,7 +140,6 @@ Subset of [`USE_CASE_BADCASE.md`](../USE_CASE_BADCASE.md) §3 used in MVP:
 | `degradation_type` | `str` | ✅ | e.g. `green_edge`, `encoding_block_artifact` |
 | `severity` | `Severity` | ✅ | good/minor/moderate/severe/critical |
 | `confidence` | `float` | ✅ | [0, 1] |
-| `mos_impact` | `float` | ✅ | Negative float；仅用于 rule 后端 MOS 求和，非感知归因 |
 | `bbox` | `BBox` | ✅ | Union of affected area |
 | `frame_indices` | `list[int]` | ✅ | `[0]` for single frame |
 | `description` | `str` | ✅ | Short Chinese summary |
@@ -149,16 +148,7 @@ Subset of [`USE_CASE_BADCASE.md`](../USE_CASE_BADCASE.md) §3 used in MVP:
 | `root_cause_hypothesis` | `RootCauseHypothesis` | ✅ | |
 | `vlm_reasoning` | `VLMReasoning \| None` | ❌ | MVP: always null |
 
-### Severity → mos_impact (MVP defaults from edge_bleed spec)
-
-> **MOS 与归因解耦**：`mos_impact` 仅用于 rule 后端把各劣化项叠加成帧级 MOS 总分（`base_mos + Σ penalty × decay_factor^i`），是工程启发式求和，**非感知归因**。真正的归因（劣化是什么 / 在哪 / 为什么）看 `degradations[]`（detector / bbox / evidence / root_cause / vlm_reasoning），与 `mos_impact` 无关。`mos_model=clip_iqa` 时由 CLIP-IQA 直接预测总分，不使用本表。
-
-| Severity | Typical mos_impact |
-|----------|-------------------|
-| minor | -0.2 |
-| moderate | -0.3 |
-| severe | -0.4 |
-| critical | -0.8 |
+> **MOS 与归因解耦**：`DegradationItem` 不再携带 `mos_impact` 字段——在没有源图参考的情况下逐项估计"每种失真造成多少 MOS 损失"不可靠，故移除。归因（劣化是什么 / 在哪 / 为什么）看 `degradations[]`（detector / bbox / evidence / root_cause / vlm_reasoning）；帧级 MOS 总分由无参考画质模型（默认 CLIP-IQA）直接预测，见下方 `MOSBreakdown`。
 
 ---
 
@@ -174,7 +164,8 @@ Subset of [`USE_CASE_BADCASE.md`](../USE_CASE_BADCASE.md) §3 used in MVP:
 | `frame_index` | `int` | ✅ |
 | `report_timestamp` | `str` (ISO 8601) | ✅ |
 | `system_version` | `str` | ✅ e.g. `0.1.0` |
-| `overall_mos` | `float` | ✅ [1.0, 5.0] |
+| `overall_mos` | `float \| None` | ✅ | CLIP-IQA 预测映射到 [1.0, 5.0]；不可用时为 null |
+| `mos_unavailable_reason` | `str \| None` | ❌ | overall_mos=null 时的原因；非 null 时为 null |
 | `severity` | `Severity` | ✅ aggregate |
 | `mos_breakdown` | `MOSBreakdown` | ✅ |
 | `degradations` | `list[DegradationItem]` | ✅ |
@@ -185,13 +176,14 @@ Subset of [`USE_CASE_BADCASE.md`](../USE_CASE_BADCASE.md) §3 used in MVP:
 
 ### MOSBreakdown
 
+> 帧级 MOS 总分由无参考画质模型直接预测（默认 `clip_iqa`，CLIP-IQA 映射到 [1,5]）。**不再有 base_mos/decay 衰减公式、不再有 per-distortion 罚分明细**。模型不可用（依赖缺失/权重下载失败/推理异常/未提供帧）时 `status="unavailable"`、`mos=null`，`reason` 给出原因，**不回退任何硬编码默认分**。
+
 | Field | Type |
 |-------|------|
-| `base_mos` | `float` (default 4.5) |
-| `total_penalty` | `float` (≤ 0) |
-| `cap_applied` | `bool` |
-| `cap_reason` | `str \| None` |
-| `penalties` | `list[PenaltyItem]` |
+| `model` | `"clip_iqa" \| "internal"` |
+| `mos` | `float \| None` |
+| `status` | `"ok" \| "unavailable"` |
+| `reason` | `str \| None` |
 
 ### TraceEntry (L1)
 
@@ -248,8 +240,7 @@ compression:
   blockiness_coarse_threshold: 1.4
 
 report:
-  base_mos: 4.5
-  decay_factor: 0.7
+  mos_model: "clip_iqa"   # CLIP-IQA 无参考画质预测；不可用时 overall_mos=null
 ```
 
 ---
@@ -279,7 +270,7 @@ Each frame independent; corrupt frame → log + continue; summary exit 0 if ≥1
 ## Validation Rules (implementer checklist)
 
 1. Every `degradations[].evidence` has non-empty Chinese `detail`
-2. `overall_mos = max(1.0, min(cap, base_mos + total_penalty))`
+2. `overall_mos` 由无参考画质模型（默认 CLIP-IQA）直接预测并映射到 [1,5]；模型不可用时为 null 且 `mos_unavailable_reason` 给出原因，不回退默认分
 3. `bbox` width/height > 0 when degradation present
 4. `detector` ∈ 9 类检测器集合（MVP 原始切片为 `{edge_bleed, compression_artifact}`，后续扩展至 9 类，见 README 检测器表）
 5. JSON output validates against `contracts/quality-report.schema.json`

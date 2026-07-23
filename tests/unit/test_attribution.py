@@ -6,13 +6,12 @@ from types import SimpleNamespace
 from lqdd.attribution.scenario import attribute_scenarios, scenario_attribution_to_dict
 
 
-def _deg(degradation_id, degradation_type, detector, severity, mos_impact=-0.2):
+def _deg(degradation_id, degradation_type, detector, severity):
     return SimpleNamespace(
         degradation_id=degradation_id,
         degradation_type=degradation_type,
         detector=detector,
         severity=severity,
-        mos_impact=mos_impact,
         description=f"{degradation_type} detected",
     )
 

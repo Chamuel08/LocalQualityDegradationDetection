@@ -102,7 +102,7 @@ INIT → GLOBAL_SCAN → ROUTE → DETECT (parallel) → VLM_CONFIRM (grey ROI)
 1. 一致 → `final_confidence = 0.4×det + 0.6×vlm`
 2. 不一致 + vlm_conf > 0.8 → 以 VLM 为准
 3. 不一致 + det_conf > 0.8 → 以检测器为准
-4. 其他 → `uncertain`，MOS 扣分取较小 |mos_impact|
+4. 其他 → `uncertain`（不再写回 per-distortion MOS 扣分；帧级 MOS 由 CLIP-IQA 统一预测）
 
 `vlm_reasoning` 写入 `DegradationItem.vlm_reasoning`（L3 字段）。
 

@@ -10,7 +10,6 @@ def _deg(conf: float = 0.55) -> DegradationItem:
         degradation_type="green_spill",
         severity="minor",
         confidence=conf,
-        mos_impact=-0.2,
         bbox=[0, 0, 10, 10],
         frame_indices=[0],
         description="test",

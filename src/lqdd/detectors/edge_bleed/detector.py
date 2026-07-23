@@ -50,7 +50,7 @@ class EdgeBleedDetector:
         edge_lab = lab[edge_mask]
         delta_e = np.sqrt(((edge_lab - bg_mean) ** 2).sum(axis=1)).mean() if edge_lab.size else 0.0
 
-        severity, mos_impact = self._classify(spill_ratio, float(delta_e))
+        severity = self._classify(spill_ratio, float(delta_e))
         if severity == Severity.GOOD:
             return []
 
@@ -73,7 +73,6 @@ class EdgeBleedDetector:
                 degradation_type="green_spill",
                 severity=severity.value,
                 confidence=min(0.95, 0.55 + spill_ratio),
-                mos_impact=mos_impact,
                 bbox=list(bbox),
                 region_mask_rle=mask_rle,
                 frame_indices=[scan_output.frame_index],
@@ -93,21 +92,19 @@ class EdgeBleedDetector:
             )
         ]
 
-    def _classify(self, spill_ratio: float, delta_e: float) -> tuple[Severity, float]:
+    def _classify(self, spill_ratio: float, delta_e: float) -> Severity:
         cfg = self.config
         # Green spill requires measurable green excess; high edge-background ΔE alone is not green spill.
         if spill_ratio < cfg.green_spill_minor:
-            return Severity.GOOD, 0.0
+            return Severity.GOOD
         if spill_ratio >= cfg.green_spill_critical:
-            return Severity.CRITICAL, -0.8
+            return Severity.CRITICAL
         if spill_ratio >= cfg.green_spill_moderate:
             sev = Severity.MODERATE
-            impact = -0.3
         else:
             sev = Severity.MINOR
-            impact = -0.2
         if delta_e >= cfg.delta_e_spill_threshold * 2:
-            return Severity.CRITICAL, min(impact, -0.8)
+            return Severity.CRITICAL
         if delta_e >= cfg.delta_e_spill_threshold and sev == Severity.MINOR:
-            return Severity.MODERATE, -0.3
-        return sev, impact
+            return Severity.MODERATE
+        return sev

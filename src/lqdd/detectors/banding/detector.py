@@ -53,7 +53,6 @@ class BandingArtifactDetector:
                 region_type=RegionType.BACKGROUND,
                 severity=Severity.MINOR.value,
                 confidence=min(0.82, 0.55 + (score - self.config.score_threshold) * 0.6),
-                mos_impact=-0.2,
                 bbox=bbox,
                 region_mask=region_mask,
                 method="gradient_quantization_banding",

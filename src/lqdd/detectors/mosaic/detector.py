@@ -55,7 +55,6 @@ class MosaicArtifactDetector:
         )
 
         severity = Severity.MODERATE.value if score >= self.config.score_threshold * 1.2 else Severity.MINOR.value
-        mos = -0.35 if severity == Severity.MODERATE.value else -0.25
 
         return [
             make_degradation_item(
@@ -64,7 +63,6 @@ class MosaicArtifactDetector:
                 region_type=RegionType.BODY,
                 severity=severity,
                 confidence=min(0.88, 0.58 + (score - self.config.score_threshold) * 0.5),
-                mos_impact=mos,
                 bbox=bbox,
                 region_mask=region_mask,
                 method="block_flatness_mosaic",

@@ -268,11 +268,12 @@ def build_agent_observe_prompt(
     """返回 (system_prompt, user_prompt) 供 LLM decide() 使用。
 
     frame_bgr: 可选原始帧（BGR uint8 numpy array）。
-        当 report_cfg.mos_model == "clip_iqa" 时传入，使 Agent 观察
-        到的 global_mos 与最终报告一致（由 CLIP-IQA 直接预测）。
-        不传时自动降级到 rule 衰减公式（行为与旧版相同）。
+        传入时由 CLIP-IQA 直接预测帧级 MOS，作为 Agent 观察的 global_mos；
+        不传 / CLIP-IQA 不可用时 global_mos 显示为 "unavailable"，
+        此时不应基于 MOS 触发补检（MOS 不可用 ≠ 偏低）。
     """
     mos, _ = compute_mos(degradations, report_cfg, frame_bgr=frame_bgr)
+    global_mos_str = "unavailable" if mos is None else round(mos, 3)
     detections = [
         {
             "degradation_id": d.degradation_id,
@@ -280,7 +281,6 @@ def build_agent_observe_prompt(
             "confidence": round(d.confidence, 3),
             "degradation_type": d.degradation_type,
             "severity": d.severity,
-            "mos_impact": round(d.mos_impact, 3),
             # evidence.detail 提供具体数值依据（如 "Laplacian 方差 11 ≤ 85（偏糊）"），
             # 帮助 Agent 判断是否值得 VLM 确认或补检，而非仅凭置信度决策。
             "evidence_detail": (
@@ -305,7 +305,7 @@ def build_agent_observe_prompt(
     user_prompt = AGENT_OBSERVE_TEMPLATE.format(
         step=step,
         max_steps=max_steps,
-        global_mos=round(mos, 3),
+        global_mos=global_mos_str,
         detection_count=len(degradations),
         detections_json=json.dumps(detections, ensure_ascii=False, indent=2),
         skipped_detectors=json.dumps(skipped, ensure_ascii=False),
@@ -326,6 +326,7 @@ def build_judge_prompt(
     vlm_calls: int,
 ) -> str:
     mos, _ = compute_mos(degradations, report_cfg)
+    global_mos_str = "unavailable" if mos is None else round(mos, 3)
     detections = [
         {
             "detector": d.detector,
@@ -336,7 +337,7 @@ def build_judge_prompt(
         for d in degradations
     ]
     return JUDGE_USER_TEMPLATE.format(
-        global_mos=mos,
+        global_mos=global_mos_str,
         detection_count=len(degradations),
         detections_json=json.dumps(detections, ensure_ascii=False),
         skipped=json.dumps(skipped, ensure_ascii=False),

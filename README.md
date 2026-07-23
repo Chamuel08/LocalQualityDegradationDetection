@@ -19,7 +19,7 @@
 - **业务场景归因（`scenario_attribution`）**：把检出劣化映射到业务场景（转码增强 / 直播 / 推荐 / AIGC 审核）并给出修复建议，让检测从「检出」升级到「可执行建议」
 - **视频 clip 多帧输入（V2）**：`VideoClipRunner` 外层包装多帧，逐帧跑单帧 pipeline + 帧间 `TemporalFlicker` 聚合，不改单帧接口
 - **时序建模升级**：`TemporalFlicker` 在亮度/色相跳变之上新增 **C1 运动补偿**（Farneback 光流对齐后残差能量，区分真闪烁 vs 镜头运动）、**C2 时序 SSIM**（相邻补偿帧 SSIM）、**C3 局部闪烁热力图**（分块残差 → 热力图 + 带 bbox 的局部段）
-- **MOS 打分**：默认 rule 启发式（零依赖）；可选 `mos_model=clip_iqa` 用 CLIP-IQA 无参考感知预测。MOS 只是帧级一个总分，per-item 罚分明细非感知归因
+- **MOS 打分**：默认 `mos_model=clip_iqa`，由 CLIP-IQA 无参考感知预测直接给出帧级总分（映射到 [1,5]）。MOS 与归因解耦——归因看 `degradations[]`，MOS 只是帧级一个总分，不再硬编码 per-distortion 扣分。CLIP-IQA 不可用（依赖缺失/权重下载失败/推理异常）时 `overall_mos=null` 并在 `mos_unavailable_reason` 给出原因，**绝不回退默认分**
 - **VLM prompt 消融实验**：`scripts/vlm_prompt_ablation.py` 在带 GT 的基准集上跑 `baseline` / `strict` / `loose` 三种 `vlm_discover` prompt，产出 TPR / FPR / 平均 findings / 平均延迟表
 - **优雅降级**：Ollama 不可用时，Agent 步骤自动走规则降级并在 trace 中记录原因
 - **两种流水线**：v0.1 确定性快速路径（`--legacy-fixed`）；V1 ReAct Agent（默认）
@@ -388,19 +388,18 @@ mode_select → global_scan → routing → detection
 
 **4. mos_breakdown — MOS 总分**
 
-**MOS 与归因是两件事**：归因看 `degradations[]`（detector、bbox、evidence、root_cause、vlm_reasoning），与 MOS 无关；MOS 只是帧级一个总分。推荐 `mos_model=clip_iqa`，由 CLIP-IQA 无参考感知预测直接给出：
+**MOS 与归因是两件事**：归因看 `degradations[]`（detector、bbox、evidence、root_cause、vlm_reasoning），与 MOS 无关；MOS 只是帧级一个总分，由无参考画质模型直接预测（默认 `clip_iqa`）：
 
 ```json
 {
-  "base_mos": 3.673,
-  "total_penalty": 0.0,
-  "cap_applied": false,
-  "cap_reason": "mos_model=clip_iqa，分数由 CLIP-IQA 直接预测",
-  "penalties": []
+  "model": "clip_iqa",
+  "mos": 3.673,
+  "status": "ok",
+  "reason": null
 }
 ```
 
-未装 pyiqa/torch 时降级到 `rule` 后端：`MOS = base_mos + Σ(penalty_i × decay_factor^i)`（零依赖兜底，非感知归因，`penalties` 仅为求和明细）。
+未装 pyiqa/torch（或权重下载失败/推理异常/未提供帧）时 `status="unavailable"`、`mos=null`，`reason` 给出具体原因；`overall_mos` 同步置 null，`mos_unavailable_reason` 记录原因，**不回退任何硬编码默认分**。
 
 ### V1 vs v0.1 对比
 
@@ -623,7 +622,7 @@ judge:
   timeout_ms: 45000
 
 report:
-  mos_model: "rule"                # rule（默认零依赖）/ clip_iqa（CLIP-IQA 感知预测）/ internal（预留）
+  mos_model: "clip_iqa"            # clip_iqa（默认，CLIP-IQA 无参考感知预测）/ internal（预留）
 ```
 
 ### 环境变量覆盖

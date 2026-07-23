@@ -53,7 +53,7 @@ class CompressionArtifactDetector:
         h, w = frame.shape[:2]
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         signals = self._analyze(gray, scan_output)
-        severity, mos_impact = self._classify(signals)
+        severity = self._classify(signals)
         if severity == Severity.GOOD:
             return []
 
@@ -71,7 +71,6 @@ class CompressionArtifactDetector:
                 degradation_type="blockiness",
                 severity=severity.value,
                 confidence=self._confidence(signals, severity),
-                mos_impact=mos_impact,
                 bbox=list(bbox),
                 region_mask_rle=mask_rle,
                 frame_indices=[scan_output.frame_index],
@@ -256,27 +255,27 @@ class CompressionArtifactDetector:
             detail=f"未超过压缩检测阈值（block={block:.2f}, texture={texture:.2f}）",
         )
 
-    def _classify(self, signals: CompressionSignals) -> tuple[Severity, float]:
+    def _classify(self, signals: CompressionSignals) -> Severity:
         cfg = self.config
         if signals.metric == "blockiness_score":
             score = signals.blockiness_score
             if score < cfg.mild_blockiness_threshold:
-                return Severity.GOOD, 0.0
+                return Severity.GOOD
             if score < cfg.blockiness_coarse_threshold:
-                return Severity.MINOR, -0.15
+                return Severity.MINOR
             if score >= cfg.blockiness_threshold * 1.3:
-                return Severity.SEVERE, -0.4
+                return Severity.SEVERE
             if score >= cfg.blockiness_threshold:
-                return Severity.MODERATE, -0.3
-            return Severity.MINOR, -0.2
+                return Severity.MODERATE
+            return Severity.MINOR
         if signals.metric == "texture_loss_score":
             score = signals.texture_loss_score
             if score >= cfg.texture_loss_threshold * 1.4:
-                return Severity.MODERATE, -0.35
-            return Severity.MINOR, -0.25
+                return Severity.MODERATE
+            return Severity.MINOR
         if signals.metric == "edge_block_ratio":
-            return Severity.MINOR, -0.2
-        return Severity.GOOD, 0.0
+            return Severity.MINOR
+        return Severity.GOOD
 
     def _confidence(self, signals: CompressionSignals, severity: Severity) -> float:
         base = {

@@ -41,6 +41,101 @@ def test_minimal_report_validates(schema_path: Path) -> None:
         },
         "vlm_reasoning_summary": None,
     }
+
+
+def test_null_mos_with_reason_validates(schema_path: Path) -> None:
+    """CLIP-IQA 不可用时 overall_mos=null + mos_unavailable_reason 应通过校验。"""
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    sample = {
+        "report_id": "rpt_null",
+        "video_id": "frame_02",
+        "mode": "fast",
+        "frame_index": 0,
+        "report_timestamp": "2026-07-23T12:00:00+00:00",
+        "system_version": "0.1.0",
+        "overall_mos": None,
+        "mos_unavailable_reason": "CLIP-IQA 不可用（pyiqa 未安装）",
+        "severity": "good",
+        "degradations": [],
+        "decision_trace": [
+            {
+                "stage": "mode_select",
+                "module": "FastPipeline",
+                "timestamp_ms": 0.0,
+                "duration_ms": 0.0,
+                "input_summary": {},
+                "output_summary": {},
+                "decision": "mode_fast",
+                "mode": "fast",
+            }
+        ],
+        "performance": {
+            "total_ms": 10.0,
+            "global_scan_ms": 5.0,
+            "detection_ms": 3.0,
+            "aggregation_ms": 2.0,
+        },
+        "vlm_reasoning_summary": None,
+    }
+    jsonschema.validate(instance=sample, schema=schema)
+
+
+def test_degradation_without_mos_impact_validates(schema_path: Path) -> None:
+    """DegradationItem 不再含 mos_impact 字段，应通过校验。"""
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    sample = {
+        "report_id": "rpt_deg",
+        "video_id": "frame_03",
+        "mode": "fast",
+        "frame_index": 0,
+        "report_timestamp": "2026-07-23T12:00:00+00:00",
+        "system_version": "0.1.0",
+        "overall_mos": 4.1,
+        "severity": "minor",
+        "degradations": [
+            {
+                "degradation_id": "deg_1",
+                "region_type": "face",
+                "degradation_type": "face_blur",
+                "severity": "minor",
+                "confidence": 0.68,
+                "bbox": [10, 10, 20, 20],
+                "frame_indices": [0],
+                "description": "面部模糊",
+                "detector": "face_artifact",
+                "evidence": {
+                    "method": "face_roi_laplacian",
+                    "metric": "face_laplacian_var",
+                    "value": 11.0,
+                    "threshold": 85.0,
+                    "detail": "偏糊",
+                },
+                "root_cause_hypothesis": {"cause": "generation_artifact", "confidence": 0.45},
+            }
+        ],
+        "decision_trace": [
+            {
+                "stage": "mode_select",
+                "module": "FastPipeline",
+                "timestamp_ms": 0.0,
+                "duration_ms": 0.0,
+                "input_summary": {},
+                "output_summary": {},
+                "decision": "mode_fast",
+                "mode": "fast",
+            }
+        ],
+        "performance": {
+            "total_ms": 10.0,
+            "global_scan_ms": 5.0,
+            "detection_ms": 3.0,
+            "aggregation_ms": 2.0,
+        },
+        "vlm_reasoning_summary": None,
+    }
+    jsonschema.validate(instance=sample, schema=schema)
+
+
 def test_golden_samples_validate(schema_path: Path, expected_dir: Path) -> None:
     if not expected_dir.is_dir():
         pytest.skip("golden expected dir removed; use GT benchmark manifest eval")

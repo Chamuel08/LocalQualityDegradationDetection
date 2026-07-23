@@ -39,12 +39,16 @@ def test_compute_mos_clip_iqa_branch() -> None:
     cfg = ReportConfig(mos_model="clip_iqa")
     mos, breakdown = compute_mos([], cfg, frame_bgr=_fake_frame())
     assert 1.0 <= mos <= 5.0
-    assert breakdown.total_penalty == 0.0
-    assert "clip_iqa" in (breakdown.cap_reason or "")
+    assert breakdown.status == "ok"
+    assert breakdown.model == "clip_iqa"
+    assert breakdown.mos == mos
+    assert breakdown.reason is None
 
 
-def test_compute_mos_clip_iqa_without_frame_falls_back_to_rule() -> None:
+def test_compute_mos_clip_iqa_without_frame_returns_null() -> None:
+    """未提供 frame_bgr → MOS=null + unavailable（不回退默认分）。"""
     cfg = ReportConfig(mos_model="clip_iqa")
     mos, breakdown = compute_mos([], cfg, frame_bgr=None)
-    assert mos == 4.5
-    assert breakdown.cap_reason is None
+    assert mos is None
+    assert breakdown.status == "unavailable"
+    assert breakdown.reason and "frame_bgr" in breakdown.reason

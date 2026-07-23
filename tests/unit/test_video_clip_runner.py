@@ -68,7 +68,6 @@ def _stub_report(frame_index: int, mos: float, deg_types: list[str]) -> QualityR
             degradation_type=t,
             severity="minor",
             confidence=0.7,
-            mos_impact=-0.2,
             bbox=[0, 0, 10, 10],
             frame_indices=[frame_index],
             description="stub",

@@ -30,7 +30,6 @@ def fake_report():
         degradation_type="face_blur",
         severity="minor",
         confidence=0.782,
-        mos_impact=-0.2,
         bbox=[10, 10, 20, 20],
         frame_indices=[0],
         description="face blur",

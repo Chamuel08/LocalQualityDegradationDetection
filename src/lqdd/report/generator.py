@@ -40,122 +40,69 @@ def compute_mos(
     degradations: list[DegradationItem],
     cfg: ReportConfig,
     frame_bgr: "np.ndarray | None" = None,
-) -> tuple[float, MOSBreakdown]:
+) -> tuple[float | None, MOSBreakdown]:
     """计算帧级 MOS 分数（单一总分）。
 
-    **MOS 与归因解耦**：归因（劣化是什么 / 在哪 / 为什么）来自 `degradations[]`
+    **MOS 与归因解耦**：归因（劣化是什么 / 在哪 / 为什么）来自 ``degradations[]``
     （detector / bbox / evidence / root_cause / vlm_reasoning），与本函数无关。
-    本函数只产出帧级一个总分；`mos_breakdown.penalties` 在 `clip_iqa` 模式下为空，
-    在 `rule` 模式下为求和明细（非感知归因）。
+    本函数只产出帧级一个总分，由 ``cfg.mos_model`` 指定的无参考画质模型直接预测，
+    **不再硬编码 per-distortion 扣分、不再有 base_mos/decay 衰减公式**。
 
-    支持三种后端（由 cfg.mos_model 控制）：
+    后端（由 ``cfg.mos_model`` 控制）：
 
-    1. "rule"（默认，零额外依赖）
-       MOS = base_mos + Σ( penalty_i × decay_factor^i )，工程启发，非主观拟合。
-
-    2. "clip_iqa"（推荐，需 pyiqa + torch）
+    1. ``"clip_iqa"``（默认，需 pyiqa + torch）
        CLIP-IQA（ICCV 2023）无参考画质预测，[0,1] 线性映射到 MOS [1,5]。
-       需传入 frame_bgr（BGR uint8）。
+       需传入 ``frame_bgr``（BGR uint8）。
+       **失败语义**：依赖缺失 / 权重下载失败 / 推理异常 / 未提供帧时，
+       返回 ``(None, MOSBreakdown(status="unavailable", reason=...))``，
+       由上层把 ``overall_mos`` 置 null 并记录原因，**绝不回退到硬编码默认分**。
 
-    3. "internal"（预留，需自行实现 lqdd.mos.internal_model）
+    2. ``"internal"``（预留，需自行实现 ``lqdd.mos.internal_model``）
+       未实现时同样返回 unavailable，不回退。
 
     Args:
         degradations: 当前帧所有检出的劣化项（归因来源，与 MOS 计算独立）
-        cfg:          ReportConfig，包含 base_mos, decay_factor, mos_model
+        cfg:          ReportConfig（mos_model / system_version）
         frame_bgr:    原始帧图像（BGR uint8），clip_iqa 模式下必须提供
 
     Returns:
-        (mos_score, MOSBreakdown) 元组
+        (mos_score | None, MOSBreakdown) 元组。mos_score 为 None 表示 MOS 不可用。
     """
-    from lqdd.models.report import PenaltyItem
+    model = cfg.mos_model or "clip_iqa"
 
     # ------------------------------------------------------------------ #
-    # clip_iqa 分支：CLIP-IQA 直接预测帧级 MOS                            #
+    # internal 分支：预留接口（未实现 → unavailable，不回退）              #
     # ------------------------------------------------------------------ #
-    if cfg.mos_model == "clip_iqa":
-        if frame_bgr is None:
-            # 没有图像帧时无法运行，降级到 rule
-            import warnings
-            warnings.warn(
-                "mos_model='clip_iqa' 需要传入 frame_bgr 参数，当前降级到 rule 模式",
-                RuntimeWarning,
-                stacklevel=2,
-            )
-        else:
-            try:
-                from lqdd.mos.clip_iqa import predict_mos_clip_iqa
-
-                mos = predict_mos_clip_iqa(frame_bgr)
-                # CLIP-IQA 直接给出帧级 MOS，构造一个简洁的 breakdown 记录
-                breakdown = MOSBreakdown(
-                    base_mos=mos,
-                    total_penalty=0.0,
-                    cap_applied=False,
-                    cap_reason="mos_model=clip_iqa，分数由 CLIP-IQA 直接预测",
-                    penalties=[],
-                )
-                return mos, breakdown
-            except ImportError as exc:
-                import warnings
-                warnings.warn(
-                    f"CLIP-IQA 不可用（{exc}），降级到 rule 模式。"
-                    "安装方法：pip install pyiqa torch torchvision setuptools",
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
-            except Exception as exc:
-                import warnings
-                warnings.warn(
-                    f"CLIP-IQA 推理失败（{exc}），降级到 rule 模式",
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
-
-    # ------------------------------------------------------------------ #
-    # internal 分支：预留接口                                               #
-    # ------------------------------------------------------------------ #
-    elif cfg.mos_model == "internal":
+    if model == "internal":
         try:
             from lqdd.mos.internal_model import predict_mos  # type: ignore[import-not-found]
+
             return predict_mos(degradations, cfg, frame_bgr)
-        except ImportError:
-            import warnings
-            warnings.warn(
-                "mos_model='internal' 但 lqdd.mos.internal_model 未实现，降级到 rule",
-                RuntimeWarning,
-                stacklevel=2,
-            )
+        except ImportError as exc:
+            reason = f"internal MOS 后端未实现（{exc}）；需实现 lqdd.mos.internal_model"
+            return None, MOSBreakdown(model="internal", mos=None, status="unavailable", reason=reason)
 
     # ------------------------------------------------------------------ #
-    # rule 路径（默认 / 降级）                                              #
-    # 按 mos_impact 绝对值降序，后续项以 decay_factor^index 衰减            #
-    # 注意：per-item effective_penalty 是求和明细，非感知归因；归因看        #
-    # degradations[]（detector/bbox/evidence/root_cause）。                #
+    # clip_iqa 分支（默认）：CLIP-IQA 直接预测帧级 MOS                     #
     # ------------------------------------------------------------------ #
-    sorted_items = sorted(degradations, key=lambda d: abs(d.mos_impact), reverse=True)
-    penalties: list[PenaltyItem] = []
-    total = 0.0
-    for idx, item in enumerate(sorted_items):
-        effective = item.mos_impact * (cfg.decay_factor**idx)
-        penalties.append(
-            PenaltyItem(
-                source=item.degradation_id,
-                penalty=item.mos_impact,
-                effective_penalty=round(effective, 4),
-                decay_index=idx,
-                reason=item.description,
-            )
+    if frame_bgr is None:
+        reason = "clip_iqa 需要原始帧 frame_bgr，未提供"
+        return None, MOSBreakdown(model="clip_iqa", mos=None, status="unavailable", reason=reason)
+
+    try:
+        from lqdd.mos.clip_iqa import predict_mos_clip_iqa
+
+        mos = predict_mos_clip_iqa(frame_bgr)
+        return mos, MOSBreakdown(model="clip_iqa", mos=mos, status="ok", reason=None)
+    except ImportError as exc:
+        reason = (
+            f"CLIP-IQA 不可用（{exc}）；安装方法：pip install \"lqdd[clip_iqa]\""
+            "（即 pyiqa + torch + torchvision）。未安装时 overall_mos 置 null，不回退默认分。"
         )
-        total += effective
-    mos = max(1.0, min(5.0, cfg.base_mos + total))
-    breakdown = MOSBreakdown(
-        base_mos=cfg.base_mos,
-        total_penalty=round(total, 4),
-        cap_applied=mos <= 1.0,
-        cap_reason="overall_mos floored at 1.0" if mos <= 1.0 else None,
-        penalties=penalties,
-    )
-    return round(mos, 3), breakdown
+        return None, MOSBreakdown(model="clip_iqa", mos=None, status="unavailable", reason=reason)
+    except Exception as exc:
+        reason = f"CLIP-IQA 推理失败（{exc}）；overall_mos 置 null，不回退默认分"
+        return None, MOSBreakdown(model="clip_iqa", mos=None, status="unavailable", reason=reason)
 
 
 def build_summary(degradations: list[DegradationItem]) -> DegradationSummary:
@@ -166,7 +113,7 @@ def build_summary(degradations: list[DegradationItem]) -> DegradationSummary:
         by_severity[d.severity] = by_severity.get(d.severity, 0) + 1
         by_detector[d.detector] = by_detector.get(d.detector, 0) + 1
         by_root[d.root_cause_hypothesis.cause] = by_root.get(d.root_cause_hypothesis.cause, 0) + 1
-    top = [d.description for d in sorted(degradations, key=lambda x: abs(x.mos_impact), reverse=True)[:3]]
+    top = [d.description for d in sorted(degradations, key=lambda x: x.confidence, reverse=True)[:3]]
     return DegradationSummary(
         total_count=len(degradations),
         by_severity=by_severity,
@@ -194,6 +141,7 @@ class ReportGenerator:
         quality_caption: dict[str, Any] | None = None,
     ) -> QualityReport:
         mos, breakdown = compute_mos(degradations, self.config, frame_bgr=frame_input.frame)
+        mos_unavailable_reason = breakdown.reason if (mos is None and breakdown is not None) else None
         perf = PerformanceMetrics(
             total_ms=perf.total_ms,
             global_scan_ms=perf.global_scan_ms,
@@ -224,4 +172,5 @@ class ReportGenerator:
             agent_meta=asdict(agent_meta) if hasattr(agent_meta, "__dataclass_fields__") else agent_meta,
             scenario_attribution=scenario_attribution,
             quality_caption=quality_caption,
+            mos_unavailable_reason=mos_unavailable_reason,
         )

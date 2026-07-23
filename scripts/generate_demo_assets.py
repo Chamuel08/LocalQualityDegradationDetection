@@ -70,8 +70,10 @@ def _label_image(frame: np.ndarray, title: str) -> np.ndarray:
 
 
 def _summary_panel(report, width: int, meta: dict) -> np.ndarray:
+    mos_val = report.overall_mos
+    mos_str = f"{mos_val:.2f}" if mos_val is not None else "unavailable"
     lines = [
-        f"overall_mos: {report.overall_mos:.2f}",
+        f"overall_mos: {mos_str}",
         f"degradations: {len(report.degradations)}",
         f"gt_type: {meta.get('primary_type', '')}",
     ]
@@ -186,7 +188,7 @@ def main() -> None:
                 "title": title,
                 "image": str(image_path),
                 "html": str(html_path.relative_to(REPO)),
-                "mos": round(report.overall_mos, 2),
+                "mos": round(report.overall_mos, 2) if report.overall_mos is not None else None,
                 "degradations": len(report.degradations),
                 "detectors": [d.detector for d in report.degradations],
                 "gt_artifacts": sample.get("artifacts", []),

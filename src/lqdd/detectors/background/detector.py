@@ -72,7 +72,6 @@ class BackgroundArtifactDetector:
                 region_type=RegionType.BACKGROUND,
                 severity=Severity.MINOR.value,
                 confidence=min(0.85, 0.56 + max(0.0, value - threshold) * 0.4),
-                mos_impact=-0.18,
                 bbox=bbox,
                 region_mask=region_mask,
                 method="background_blockiness_color_cast",

@@ -162,9 +162,20 @@ def _flicker_heatmap_rgb(flicker_result: Any) -> "np.ndarray | None":
     return cv2.cvtColor(colored, cv2.COLOR_BGR2RGB)
 
 
+def _fmt_mos(mos: Any) -> str:
+    """MOS 展示：有分时显示数值，None 时显示不可用。"""
+    if mos is None:
+        return "不可用"
+    return f"{float(mos):.3f}"
+
+
 def _summary_md(report: Any) -> str:
+    mos_str = _fmt_mos(report.overall_mos)
+    if report.overall_mos is None:
+        reason = getattr(report, "mos_unavailable_reason", None) or "MOS 不可用"
+        mos_str = f"**不可用**（{reason}）"
     lines = [
-        f"### MOS: **{report.overall_mos:.3f}** &nbsp; 严重度: **{report.severity}**",
+        f"### MOS: **{mos_str}** &nbsp; 严重度: **{report.severity}**",
         f"system_version: `{report.system_version}` &nbsp; 劣化数: **{len(report.degradations)}**",
     ]
     perf = report.performance
@@ -231,11 +242,13 @@ def run_video(video_path: str, mode: str, config_path: str, max_frames: int) -> 
     result = runner.run(frames, clip_id=Path(video_path).stem)
 
     fr = result.flicker_result
+    agg_mos_str = _fmt_mos(result.aggregate_mos)
+    worst_mos_str = _fmt_mos(result.worst_frame_mos)
     summary = (
         f"### 视频聚合结果\n"
         f"- 帧数: **{result.frame_count}**\n"
-        f"- aggregate_mos: **{result.aggregate_mos:.3f}**\n"
-        f"- 最差帧: MOS={result.worst_frame_mos:.3f} @ idx={result.worst_frame_index}\n"
+        f"- aggregate_mos: **{agg_mos_str}**\n"
+        f"- 最差帧: MOS={worst_mos_str} @ idx={result.worst_frame_index}\n"
         f"- 闪烁: is_flickering=**{fr.is_flickering}** ratio={fr.flicker_ratio:.3f} "
         f"segments={len(fr.flicker_segments)} max_luma_delta={fr.max_luma_delta:.1f}\n"
         f"- C1 运动补偿残差: mean={getattr(fr, 'mean_motion_compensated_delta', 0.0):.3f} "

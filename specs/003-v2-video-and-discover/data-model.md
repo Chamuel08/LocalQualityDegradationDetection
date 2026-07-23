@@ -100,9 +100,9 @@ action: Literal["vlm_analyze", "rerun_detector", "dispatch_compression", "vlm_di
 | `frame_count` | `int` | 处理帧数 |
 | `frame_reports` | `list[QualityReport]` | 逐帧单帧报告（V1 结构） |
 | `flicker_result` | `TemporalFlickerResult` | 帧间闪烁检测结果 |
-| `aggregate_mos` | `float` | 逐帧 `overall_mos` 的均值（简单聚合） |
-| `worst_frame_mos` | `float` | 最差帧 MOS |
-| `worst_frame_index` | `int` | 最差帧在 `frame_reports` 中的索引 |
+| `aggregate_mos` | `float \| None` | 逐帧 `overall_mos` 的均值；全部不可用时为 None |
+| `worst_frame_mos` | `float \| None` | 最差帧 MOS；无可用 MOS 时为 None |
+| `worst_frame_index` | `int` | 最差帧在 `frame_reports` 中的索引；无可用 MOS 时为 -1 |
 | `degradation_summary` | `dict[str, int]` | 各 `degradation_type` 跨帧出现次数 |
 
 ```python
