@@ -131,7 +131,7 @@ def test_run_single_returns_expected_structure(tmp_path, monkeypatch, fake_frame
     monkeypatch.setattr("lqdd.report.viz_variants.render_mask_overlay", lambda frame, report, style="contour_fill": frame)
     monkeypatch.setattr("lqdd.models.report.report_to_dict", _report_to_dict)
 
-    overlay, summary, deg_rows, agent_rows, vlm_md, full_json = ui_app.run_single(
+    overlay, summary, deg_rows, agent_rows, vlm_md, full_json, caption_md, scenario_md = ui_app.run_single(
         str(img_path), "V1 ReAct Agent", ""
     )
 
@@ -145,6 +145,9 @@ def test_run_single_returns_expected_structure(tmp_path, monkeypatch, fake_frame
     assert "hand_extra_finger" in vlm_md
     assert full_json["overall_mos"] == 3.673
     assert full_json["agent_meta"]["agent_driven_vlm"] is True
+    # 新增字段：无 quality_caption / scenario_attribution 时为空字符串
+    assert caption_md == ""
+    assert scenario_md == ""
 
 
 def test_run_single_no_image_raises():
@@ -168,7 +171,12 @@ def test_run_video_returns_expected_structure(tmp_path, monkeypatch, fake_report
         max_luma_delta=2.0,
         flicker_ratio=0.0,
         is_flickering=False,
-        method="temporal_luma_hue_delta",
+        method="temporal_luma_hue_motion_ssim",
+        mean_motion_compensated_delta=0.5,
+        max_motion_compensated_delta=1.0,
+        temporal_ssim=0.95,
+        flicker_heatmap=None,
+        localized_segments=[],
     )
     clip_report = SimpleNamespace(
         clip_id="clip",
@@ -190,13 +198,17 @@ def test_run_video_returns_expected_structure(tmp_path, monkeypatch, fake_report
     monkeypatch.setattr(ui_app, "_resolve_config", lambda cp: SimpleNamespace(agent=SimpleNamespace(enabled=True), report=SimpleNamespace(system_version="1.0.0")))
     monkeypatch.setattr("lqdd.models.report.report_to_dict", _report_to_dict)
 
-    summary, summary_rows, full_json = ui_app.run_video(str(video_path), "V1 ReAct Agent", "", 3)
+    summary, summary_rows, full_json, heatmap_rgb = ui_app.run_video(str(video_path), "V1 ReAct Agent", "", 3)
 
     assert "aggregate_mos" in summary and "3.500" in summary
+    assert "时序 SSIM" in summary  # C2 指标展示
     assert summary_rows == [["face_blur", 3]]
     assert full_json["frame_count"] == 3
     assert full_json["flicker"]["is_flickering"] is False
+    assert full_json["flicker"]["temporal_ssim"] == 0.95
+    assert full_json["flicker"]["localized_segments"] == []
     assert len(full_json["frame_reports"]) == 3
+    assert heatmap_rgb is None  # flicker_heatmap=None -> None
 
 
 def test_run_video_no_video_raises():
@@ -207,3 +219,73 @@ def test_run_video_no_video_raises():
 def test_bundled_config_path_none_when_not_frozen(monkeypatch):
     monkeypatch.setattr(sys, "frozen", False, raising=False)
     assert ui_app._bundled_config_path() is None
+
+
+def test_quality_caption_md_renders_from_report():
+    report = SimpleNamespace(
+        quality_caption={
+            "overall_quality": "good",
+            "caption": "整体画质良好，左上角轻度压缩块效应。",
+            "primary_degradations": ["compression_artifact"],
+            "affected_regions": ["左上角"],
+            "ux_impact": "影响较小",
+        },
+        agent_meta=None,
+    )
+    md = ui_app._quality_caption_md(report)
+    assert "VLM 画质描述" in md
+    assert "good" in md
+    assert "压缩块效应" in md
+    assert "左上角" in md
+
+
+def test_quality_caption_md_falls_back_to_agent_meta():
+    report = SimpleNamespace(
+        quality_caption=None,
+        agent_meta={"quality_caption": {"overall_quality": "fair", "caption": "一般"}},
+    )
+    md = ui_app._quality_caption_md(report)
+    assert "fair" in md
+
+
+def test_quality_caption_md_empty_when_none():
+    report = SimpleNamespace(quality_caption=None, agent_meta=None)
+    assert ui_app._quality_caption_md(report) == ""
+
+
+def test_scenario_attribution_md_renders():
+    report = SimpleNamespace(
+        scenario_attribution=[
+            {
+                "scenario": "转码增强",
+                "confidence": 0.8,
+                "degradation_types": ["compression_artifact"],
+                "recommendation": "提升码率或换用 HEVC",
+            }
+        ],
+    )
+    md = ui_app._scenario_attribution_md(report)
+    assert "业务场景归因" in md
+    assert "转码增强" in md
+    assert "HEVC" in md
+
+
+def test_scenario_attribution_md_empty():
+    report = SimpleNamespace(scenario_attribution=None)
+    assert ui_app._scenario_attribution_md(report) == ""
+
+
+def test_flicker_heatmap_rgb_renders_colormap():
+    flicker = SimpleNamespace(
+        flicker_heatmap=np.array([[0, 50], [100, 200]], dtype=np.float32),
+    )
+    rgb = ui_app._flicker_heatmap_rgb(flicker)
+    assert rgb is not None
+    assert rgb.shape[2] == 3
+    # 高值区域（右下）应偏暖色（JET 高值端为红）
+    assert rgb[1, 1, 0] > rgb[0, 0, 0]
+
+
+def test_flicker_heatmap_rgb_none_when_no_heatmap():
+    flicker = SimpleNamespace(flicker_heatmap=None)
+    assert ui_app._flicker_heatmap_rgb(flicker) is None

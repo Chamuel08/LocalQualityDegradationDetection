@@ -59,7 +59,14 @@ class VLMDiscoverFinding:
 
 @dataclass
 class AgentAction:
-    action: Literal["vlm_analyze", "rerun_detector", "dispatch_compression", "vlm_discover", "accept"]
+    action: Literal[
+        "vlm_analyze",
+        "rerun_detector",
+        "dispatch_compression",
+        "vlm_discover",
+        "vlm_caption",
+        "accept",
+    ]
     target_region: str | None = None
     detector: str | None = None
     nomination_threshold_delta: float | None = None
@@ -102,6 +109,8 @@ class AgentMeta:
     agent_driven_vlm: bool = False
     # vlm_discover 发现的主动发现结果列表
     vlm_discover_findings: list[dict[str, Any]] = field(default_factory=list)
+    # vlm_caption 画质自然语言描述（D1：多模态画质归因深化）
+    quality_caption: dict[str, Any] | None = None
 
 
 @dataclass
@@ -128,3 +137,5 @@ class AgentContext:
     agent_steps: list[AgentStep] = field(default_factory=list)
     # vlm_discover 主动发现结果（不进 degradations，单独记录）
     vlm_discover_findings: list[VLMDiscoverFinding] = field(default_factory=list)
+    # vlm_caption 画质自然语言描述（D1：多模态画质归因深化）
+    quality_caption: dict[str, Any] | None = None

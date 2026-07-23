@@ -115,6 +115,53 @@ def _vlm_discover_md(agent_meta: dict[str, Any] | None) -> str:
     return "\n".join(lines)
 
 
+def _quality_caption_md(report: Any) -> str:
+    """D1 VLM 画质自然语言描述。优先读 report.quality_caption，其次 agent_meta.quality_caption。"""
+    cap = getattr(report, "quality_caption", None)
+    if not cap and report.agent_meta:
+        cap = report.agent_meta.get("quality_caption")
+    if not cap:
+        return ""
+    lines = ["### VLM 画质描述 (vlm_caption)"]
+    lines.append(f"- 整体画质: **{cap.get('overall_quality', 'unknown')}**")
+    if cap.get("caption"):
+        lines.append(f"- 描述: {cap['caption']}")
+    if cap.get("primary_degradations"):
+        lines.append(f"- 主要劣化: {', '.join(cap['primary_degradations'])}")
+    if cap.get("affected_regions"):
+        lines.append(f"- 影响区域: {', '.join(cap['affected_regions'])}")
+    if cap.get("ux_impact"):
+        lines.append(f"- 体验影响: {cap['ux_impact']}")
+    return "\n".join(lines)
+
+
+def _scenario_attribution_md(report: Any) -> str:
+    """D3 业务场景归因：劣化 → 业务场景 → 修复建议。"""
+    attrs = getattr(report, "scenario_attribution", None) or []
+    if not attrs:
+        return ""
+    lines = ["### 业务场景归因 (scenario_attribution)"]
+    for a in attrs:
+        lines.append(
+            f"- **{a.get('scenario')}** (conf={a.get('confidence')}): "
+            f"劣化={a.get('degradation_types')} → 建议: {a.get('recommendation')}"
+        )
+    return "\n".join(lines)
+
+
+def _flicker_heatmap_rgb(flicker_result: Any) -> "np.ndarray | None":
+    """C3 局部闪烁热力图 → 伪彩色 RGB 图（供 Gradio 显示）。"""
+    hm = getattr(flicker_result, "flicker_heatmap", None)
+    if hm is None:
+        return None
+    hm_f = hm.astype(np.float32)
+    if hm_f.max() > 0:
+        hm_f = hm_f / hm_f.max()
+    hm_uint8 = (hm_f * 255).astype(np.uint8)
+    colored = cv2.applyColorMap(hm_uint8, cv2.COLORMAP_JET)
+    return cv2.cvtColor(colored, cv2.COLOR_BGR2RGB)
+
+
 def _summary_md(report: Any) -> str:
     lines = [
         f"### MOS: **{report.overall_mos:.3f}** &nbsp; 严重度: **{report.severity}**",
@@ -134,8 +181,8 @@ def _summary_md(report: Any) -> str:
     return "\n".join(lines)
 
 
-def run_single(image_path: str, mode: str, config_path: str) -> tuple[Any, str, list[list[Any]], list[list[Any]], str, Any]:
-    """单帧检测回调。返回 (overlay_rgb, summary_md, deg_rows, agent_rows, vlm_md, full_json)。"""
+def run_single(image_path: str, mode: str, config_path: str) -> tuple[Any, str, list[list[Any]], list[list[Any]], str, Any, str, str]:
+    """单帧检测回调。返回 (overlay_rgb, summary_md, deg_rows, agent_rows, vlm_md, full_json, caption_md, scenario_md)。"""
     from lqdd.models.inputs import SingleFrameInput
     from lqdd.models.report import report_to_dict
     from lqdd.report.viz_variants import render_mask_overlay
@@ -161,12 +208,14 @@ def run_single(image_path: str, mode: str, config_path: str) -> tuple[Any, str, 
     deg_rows = _degradations_to_rows(report)
     agent_rows = _agent_steps_to_rows(report.agent_meta)
     vlm_md = _vlm_discover_md(report.agent_meta)
+    caption_md = _quality_caption_md(report)
+    scenario_md = _scenario_attribution_md(report)
     full_json = report_to_dict(report)
-    return overlay_rgb, summary, deg_rows, agent_rows, vlm_md, full_json
+    return overlay_rgb, summary, deg_rows, agent_rows, vlm_md, full_json, caption_md, scenario_md
 
 
-def run_video(video_path: str, mode: str, config_path: str, max_frames: int) -> tuple[str, list[list[Any]], Any]:
-    """视频多帧回调。返回 (summary_md, summary_rows, full_json)。"""
+def run_video(video_path: str, mode: str, config_path: str, max_frames: int) -> tuple[str, list[list[Any]], Any, Any]:
+    """视频多帧回调。返回 (summary_md, summary_rows, full_json, heatmap_rgb)。"""
     from lqdd.models.report import report_to_dict
     from lqdd.pipeline.video_clip_runner import VideoClipRunner, sample_frames_from_video
 
@@ -189,6 +238,10 @@ def run_video(video_path: str, mode: str, config_path: str, max_frames: int) -> 
         f"- 最差帧: MOS={result.worst_frame_mos:.3f} @ idx={result.worst_frame_index}\n"
         f"- 闪烁: is_flickering=**{fr.is_flickering}** ratio={fr.flicker_ratio:.3f} "
         f"segments={len(fr.flicker_segments)} max_luma_delta={fr.max_luma_delta:.1f}\n"
+        f"- C1 运动补偿残差: mean={getattr(fr, 'mean_motion_compensated_delta', 0.0):.3f} "
+        f"max={getattr(fr, 'max_motion_compensated_delta', 0.0):.3f}\n"
+        f"- C2 时序 SSIM: {getattr(fr, 'temporal_ssim', 1.0):.4f}\n"
+        f"- C3 局部闪烁段: {len(getattr(fr, 'localized_segments', []))}\n"
     )
     summary_rows = [[k, v] for k, v in result.degradation_summary.items()]
     full_json = {
@@ -200,6 +253,9 @@ def run_video(video_path: str, mode: str, config_path: str, max_frames: int) -> 
         "flicker": {
             "is_flickering": fr.is_flickering,
             "flicker_ratio": fr.flicker_ratio,
+            "mean_motion_compensated_delta": getattr(fr, "mean_motion_compensated_delta", 0.0),
+            "max_motion_compensated_delta": getattr(fr, "max_motion_compensated_delta", 0.0),
+            "temporal_ssim": getattr(fr, "temporal_ssim", 1.0),
             "flicker_segments": [
                 {
                     "start_frame": s.start_frame,
@@ -210,11 +266,21 @@ def run_video(video_path: str, mode: str, config_path: str, max_frames: int) -> 
                 }
                 for s in fr.flicker_segments
             ],
+            "localized_segments": [
+                {
+                    "max_delta": s.max_delta,
+                    "metric": s.metric,
+                    "severity": s.severity,
+                    "bbox": s.bbox,
+                }
+                for s in getattr(fr, "localized_segments", [])
+            ],
         },
         "degradation_summary": result.degradation_summary,
         "frame_reports": [report_to_dict(r) for r in result.frame_reports],
     }
-    return summary, summary_rows, full_json
+    heatmap_rgb = _flicker_heatmap_rgb(fr)
+    return summary, summary_rows, full_json, heatmap_rgb
 
 
 def build_ui():
@@ -258,21 +324,24 @@ def build_ui():
                 with gr.Accordion("Agent 决策轨迹", open=False):
                     agent_out = gr.Dataframe(headers=agent_headers, datatype=["str", "str", "str", "str", "number"], wrap=True)
                 vlm_out = gr.Markdown(label="vlm_discover")
+                caption_out = gr.Markdown(label="VLM 画质描述")
+                scenario_out = gr.Markdown(label="业务场景归因")
                 with gr.Accordion("视频聚合", open=False, visible=False) as video_acc:
                     video_summary = gr.Markdown()
                     video_deg = gr.Dataframe(headers=summary_headers, datatype=["str", "number"], wrap=True)
+                    heatmap_out = gr.Image(label="C3 局部闪烁热力图")
                 with gr.Accordion("完整 JSON", open=False):
                     json_out = gr.JSON()
 
         single_btn.click(
             run_single,
             inputs=[single_img, mode, config_path],
-            outputs=[overlay_out, summary_out, deg_out, agent_out, vlm_out, json_out],
+            outputs=[overlay_out, summary_out, deg_out, agent_out, vlm_out, json_out, caption_out, scenario_out],
         )
         video_btn.click(
             run_video,
             inputs=[video_in, mode, config_path, max_frames],
-            outputs=[video_summary, video_deg, json_out],
+            outputs=[video_summary, video_deg, json_out, heatmap_out],
         ).then(lambda: gr.Accordion(visible=True), outputs=video_acc)
     return demo
 

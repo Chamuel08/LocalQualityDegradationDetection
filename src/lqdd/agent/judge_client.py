@@ -20,7 +20,7 @@ from lqdd.models.report import DegradationItem, TraceEntry
 from lqdd.report.generator import compute_mos
 
 
-WHITELIST = frozenset({"vlm_analyze", "rerun_detector", "dispatch_compression", "vlm_discover", "accept"})
+WHITELIST = frozenset({"vlm_analyze", "rerun_detector", "dispatch_compression", "vlm_discover", "vlm_caption", "accept"})
 
 # ---------------------------------------------------------------------------
 # 抽象基类

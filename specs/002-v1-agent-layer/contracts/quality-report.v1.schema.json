@@ -52,7 +52,16 @@
       "items": { "$ref": "#/$defs/VLMReasoningSummary" }
     },
     "agent_meta": { "$ref": "#/$defs/AgentMeta" },
-    "performance": { "$ref": "#/$defs/PerformanceMetrics" }
+    "performance": { "$ref": "#/$defs/PerformanceMetrics" },
+    "scenario_attribution": {
+      "type": ["array", "null"],
+      "description": "业务场景归因（004）。把检出劣化映射到业务场景（转码增强/直播/推荐/AIGC 审核）+ 修复建议；未触发时为 null。",
+      "items": { "$ref": "#/$defs/ScenarioAttribution" }
+    },
+    "quality_caption": {
+      "type": ["object", "null"],
+      "description": "VLM 画质自然语言描述（004）。报告级冗余字段（与 agent_meta.quality_caption 同值），便于不读 agent_meta 的下游直接取用；未触发时为 null。"
+    }
   },
   "$defs": {
     "Evidence": {
@@ -202,6 +211,8 @@
             "routing",
             "detection",
             "vlm_confirm",
+            "vlm_discover",
+            "vlm_caption",
             "judge",
             "agent_step",
             "aggregation"
@@ -236,7 +247,7 @@
               "thought": { "type": "string" },
               "action": {
                 "type": "string",
-                "enum": ["vlm_analyze", "rerun_detector", "dispatch_compression", "vlm_discover", "accept"]
+                "enum": ["vlm_analyze", "rerun_detector", "dispatch_compression", "vlm_discover", "vlm_caption", "accept"]
               },
               "reason": { "type": ["string", "null"] },
               "observation": { "type": "string" },
@@ -257,6 +268,17 @@
               "reasoning": { "type": "string" },
               "mos_impact_estimate": { "type": "number" }
             }
+          }
+        },
+        "quality_caption": {
+          "type": ["object", "null"],
+          "description": "vlm_caption 工具的画质自然语言描述（004）。VLM 对整帧生成的可解释画质总结；未触发时为 null。",
+          "properties": {
+            "overall_quality": { "type": "string", "enum": ["excellent", "good", "fair", "poor", "bad", "unknown"] },
+            "caption": { "type": "string" },
+            "primary_degradations": { "type": "array", "items": { "type": "string" } },
+            "affected_regions": { "type": "array", "items": { "type": "string" } },
+            "ux_impact": { "type": "string" }
           }
         }
       }
@@ -313,6 +335,19 @@
         "aggregation_ms": { "type": "number", "minimum": 0 },
         "vlm_ms": { "type": "number", "minimum": 0 },
         "judge_ms": { "type": "number", "minimum": 0 }
+      }
+    },
+    "ScenarioAttribution": {
+      "type": "object",
+      "description": "业务场景归因项（004）。把检出劣化映射到业务场景 + 修复建议。",
+      "required": ["scenario", "confidence", "degradation_types", "evidence_refs", "recommendation"],
+      "additionalProperties": false,
+      "properties": {
+        "scenario": { "type": "string", "minLength": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "degradation_types": { "type": "array", "items": { "type": "string" } },
+        "evidence_refs": { "type": "array", "items": { "type": "string" } },
+        "recommendation": { "type": "string", "minLength": 1 }
       }
     }
   }

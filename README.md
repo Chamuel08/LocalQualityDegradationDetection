@@ -15,8 +15,12 @@
 - **可解释归因**：`degradations[]` 给出 RLE 像素 mask、bbox、各检测器 evidence、root_cause、VLM 语义确认（**与 MOS 计算解耦**）
 - **ReAct Agent 自主决策**：LLM 观察 CV 结果后自主判断是否调用 VLM、是否补检——而非硬编码阈值触发
 - **VLM 主动发现（`vlm_discover`）**：Agent 可让 VLM 对全帧主动扫描，发现 CV 规则检不到的语义异常（AI 生成多指、面部生成错误等），结果写入 `agent_meta.vlm_discover_findings`
-- **视频 clip 多帧输入（V2）**：`VideoClipRunner` 外层包装多帧，逐帧跑单帧 pipeline + 帧间 `TemporalFlicker`（亮度/色相跳变）聚合，不改单帧接口
+- **VLM 画质描述（`vlm_caption`）**：Agent 可让 VLM 对整帧生成自然语言画质总结（overall_quality / caption / 主要劣化 / 影响区域 / UX 影响），写入 `agent_meta.quality_caption`，让检测结果可解释
+- **业务场景归因（`scenario_attribution`）**：把检出劣化映射到业务场景（转码增强 / 直播 / 推荐 / AIGC 审核）并给出修复建议，让检测从「检出」升级到「可执行建议」
+- **视频 clip 多帧输入（V2）**：`VideoClipRunner` 外层包装多帧，逐帧跑单帧 pipeline + 帧间 `TemporalFlicker` 聚合，不改单帧接口
+- **时序建模升级**：`TemporalFlicker` 在亮度/色相跳变之上新增 **C1 运动补偿**（Farneback 光流对齐后残差能量，区分真闪烁 vs 镜头运动）、**C2 时序 SSIM**（相邻补偿帧 SSIM）、**C3 局部闪烁热力图**（分块残差 → 热力图 + 带 bbox 的局部段）
 - **MOS 打分**：默认 rule 启发式（零依赖）；可选 `mos_model=clip_iqa` 用 CLIP-IQA 无参考感知预测。MOS 只是帧级一个总分，per-item 罚分明细非感知归因
+- **VLM prompt 消融实验**：`scripts/vlm_prompt_ablation.py` 在带 GT 的基准集上跑 `baseline` / `strict` / `loose` 三种 `vlm_discover` prompt，产出 TPR / FPR / 平均 findings / 平均延迟表
 - **优雅降级**：Ollama 不可用时，Agent 步骤自动走规则降级并在 trace 中记录原因
 - **两种流水线**：v0.1 确定性快速路径（`--legacy-fixed`）；V1 ReAct Agent（默认）
 
@@ -35,6 +39,7 @@ GlobalScan → 9 detectors → ReAct Agent Loop → Report
                     │  Act:     自主选择工具调用     │
                     │    ├─ vlm_analyze   (VLM确认) │
                     │    ├─ vlm_discover  (VLM主动发现) │
+                    │    ├─ vlm_caption   (VLM画质描述) │
                     │    ├─ rerun_detector(重检)    │
                     │    ├─ dispatch_compression    │
                     │    └─ accept       (终止)     │
@@ -424,13 +429,17 @@ result = runner.run(frames, clip_id="clip_001")
 #   worst_frame_mos    = 2.91
 #   worst_frame_index  = 3               # 最差帧
 #   flicker_result:
-#     is_flickering    = True
-#     flicker_ratio    = 0.25
-#     flicker_segments = [FlickerSegment(start=2, end=3, metric='luma_delta', max_delta=18.4, severity='moderate')]
+#     is_flickering              = True
+#     flicker_ratio               = 0.25
+#     flicker_segments            = [FlickerSegment(start=2, end=3, metric='luma_delta', max_delta=18.4, severity='moderate')]
+#     mean_motion_compensated_delta = 0.52   # C1 运动补偿残差
+#     temporal_ssim                = 0.9612   # C2 时序 SSIM
+#     flicker_heatmap              = HxW float  # C3 局部闪烁热力图
+#     localized_segments           = [FlickerSegment(bbox=[0,0,32,32], ...)]  # C3 带 bbox 局部段
 #   degradation_summary = {"face_blur": 3, "compression_artifact": 1, "edge_bleed": 2}
 ```
 
-`TemporalFlicker` 检出帧 2→3 间存在亮度跳变（18.4 > 阈值 8.0），标记为 `moderate`；`degradation_summary` 跨帧汇总各劣化类型出现次数。
+`TemporalFlicker` 检出帧 2→3 间存在亮度跳变（18.4 > 阈值 8.0），标记为 `moderate`；C1 运动补偿残差小（0.52）说明该跳变非镜头运动所致；C2 时序 SSIM 0.96 说明整体时序一致；C3 热力图 + 局部段定位闪烁区域。`degradation_summary` 跨帧汇总各劣化类型出现次数。
 
 ### `vlm_discover` 主动发现示例
 
@@ -457,6 +466,101 @@ result = runner.run(frames, clip_id="clip_001")
 ```
 
 > `vlm_discover_findings` **不**合并进 `degradations[]`（VLM 无像素级定位），仅写入 `agent_meta`；`mos_impact_estimate` 仅参考，不参与 MOS 计算。
+
+### VLM 画质描述示例（`vlm_caption`）
+
+Agent 可自主选择 `vlm_caption` 让 VLM 对整帧生成自然语言画质总结，写入 `agent_meta.quality_caption` 与 `QualityReport.quality_caption`：
+
+```json
+{
+  "quality_caption": {
+    "overall_quality": "good",
+    "caption": "整体画质良好，左上角存在轻度压缩块效应，对观看体验影响较小。",
+    "primary_degradations": ["compression_artifact"],
+    "affected_regions": ["左上角"],
+    "ux_impact": "对观看体验影响较小"
+  }
+}
+```
+
+> `vlm_caption` 与 `vlm_discover` 互斥（同一帧二选一）：`vlm_discover` 聚焦「发现异常」，`vlm_caption` 聚焦「画质总结」。每帧最多 1 次，受 `vlm.max_calls_per_frame` 总额限制。
+
+### 业务场景归因示例（`scenario_attribution`）
+
+`attribute_scenarios(degradations)` 把检出劣化映射到业务场景 + 修复建议，写入 `QualityReport.scenario_attribution`：
+
+```json
+{
+  "scenario_attribution": [
+    {
+      "scenario": "转码增强",
+      "confidence": 0.8,
+      "degradation_types": ["compression_artifact"],
+      "evidence_refs": ["d1", "d2"],
+      "recommendation": "提升码率或换用 HEVC / AV1 编码"
+    },
+    {
+      "scenario": "AIGC 审核",
+      "confidence": 0.75,
+      "degradation_types": ["hand_extra_finger"],
+      "evidence_refs": ["d3"],
+      "recommendation": "生成模型迭代 / 人工复核"
+    }
+  ]
+}
+```
+
+| 劣化类型 | 业务场景 | 修复建议 |
+|---------|---------|---------|
+| `compression_artifact` | 转码增强 | 提升码率 / 换用 HEVC、AV1 |
+| `blur_artifact` | 推荐 | 上游素材质量复核 / 推荐链路降级 |
+| `mosaic_artifact` / `banding_artifact` | 直播 | 编码器参数调优 / 色深提升 |
+| `hand_anomaly` / `face_artifact` | AIGC 审核 | 生成模型迭代 / 人工复核 |
+| `edge_bleed` | 后期合成 | 抠像算法升级 / 边缘溢色修复 |
+
+### 时序建模升级示例（C1/C2/C3）
+
+`TemporalFlicker` 在亮度/色相跳变之上新增三项算法深化（`VideoClipRunner` 层调用）：
+
+```python
+fr = result.flicker_result
+# C1 运动补偿：光流对齐后残差能量，区分真闪烁 vs 镜头运动
+fr.mean_motion_compensated_delta   # 0.52
+fr.max_motion_compensated_delta    # 1.83
+# C2 时序 SSIM：相邻补偿帧 SSIM 均值 [0,1]，越高越一致
+fr.temporal_ssim                   # 0.9612
+# C3 局部闪烁热力图 + 带 bbox 的局部段
+fr.flicker_heatmap.shape           # (H, W) float
+fr.localized_segments              # [FlickerSegment(max_delta=18.4, metric='motion_compensated_delta', bbox=[0,0,32,32])]
+```
+
+| 能力 | 解决的问题 |
+|------|-----------|
+| **C1 运动补偿** | V2 把镜头平移误判为闪烁；C1 用光流对齐后残差能量，运动场景下残差小、闪烁场景下残差大 |
+| **C2 时序 SSIM** | 单看均值差无法衡量时序一致性；C2 给出 [0,1] 标量，越高越一致 |
+| **C3 局部闪烁热力图** | V2 只有全局闪烁段；C3 产出 HxW 热力图 + 带 bbox 的局部段，定位「闪在哪」 |
+
+### VLM prompt 消融实验
+
+`scripts/vlm_prompt_ablation.py` 在带 GT 的基准集上跑三种 `vlm_discover` prompt 变体，量化 prompt 对检测率/误检率的影响：
+
+```bash
+# mock 模式（无需 Ollama，演示流程）
+python scripts/vlm_prompt_ablation.py --mock --samples 40
+
+# 真实模式（需 Ollama + 基准集）
+python scripts/vlm_prompt_ablation.py --manifest ~/data/synthetic_benchmark/manifest.json --out ablation.md
+```
+
+产出 markdown 表（mock 模式示例）：
+
+| Variant | TPR (检测率) | FPR (误检率) | Avg Findings | Avg Latency (ms) | N (pos/neg) |
+|---------|--------------|--------------|-------------|------------------|-------------|
+| baseline | 0.900 | 0.650 | 0.78 | 0.2 | 40 (20/20) |
+| strict | 0.700 | 0.500 | 0.60 | 0.2 | 40 (20/20) |
+| loose | 0.850 | 0.900 | 0.88 | 0.2 | 40 (20/20) |
+
+> `strict`（高置信度阈值）FPR 最低，适合误报敏感场景；`loose`（低阈值）TPR 最高但 FPR 也最高，适合漏检敏感场景（如 AIGC 审核）。
 
 ### 复现命令
 
@@ -546,7 +650,7 @@ report:
 │   ├── agent/
 │   │   ├── orchestrator.py   # ReAct Agent 编排核心
 │   │   ├── judge_client.py   # LLM Agent 客户端（Ollama / Mock / RuleBased）
-│   │   ├── prompts.py        # AGENT_SYSTEM_PROMPT + AGENT_OBSERVE_TEMPLATE + VLM_DISCOVER_PROMPT
+│   │   ├── prompts.py        # AGENT_SYSTEM_PROMPT + AGENT_OBSERVE_TEMPLATE + VLM_DISCOVER_PROMPT(_VARIANTS) + VLM_CAPTION_PROMPT
 │   │   ├── router.py         # CV 检测器派发路由（不负责 VLM 决策）
 │   │   └── context.py        # AgentContext 工厂
 │   ├── vlm/
@@ -558,8 +662,10 @@ report:
 │   │   └── report.py         # QualityReport / DegradationItem 等
 │   ├── mos/                  # MOS 预测后端（按 mos_model 分发）
 │   │   └── clip_iqa.py       # 可选：CLIP-IQA 无参考画质预测
-│   ├── temporal_flicker/     # V2：时域闪烁检测器（帧间聚合层）
-│   │   └── detector.py       # detect_temporal_flicker：相邻帧亮度/色相跳变
+│   ├── temporal_flicker/     # V2：时域闪烁检测器（帧间聚合层，C1/C2/C3 算法深化）
+│   │   └── detector.py       # detect_temporal_flicker：运动补偿 + 时序 SSIM + 局部闪烁热力图
+│   ├── attribution/          # 业务场景归因（004）：劣化 → 业务场景 → 修复建议
+│   │   └── scenario.py       # attribute_scenarios + ScenarioAttribution
 │   ├── pipeline/
 │   │   ├── fast_pipeline.py     # v0.1
 │   │   ├── agent_pipeline.py    # V1
@@ -573,12 +679,14 @@ report:
 │   └── requirements_pack.txt  # 打包专用依赖
 ├── docs/demo/                # 演示素材（合成人像 + 7 种劣化）
 ├── benchmark/                # 批量评测脚本
-├── scripts/                  # benchmark 生成、Demo 资源
+├── scripts/                  # benchmark 生成、Demo 资源、VLM prompt 消融实验
+│   └── vlm_prompt_ablation.py # D2：baseline/strict/loose prompt 消融 → TPR/FPR 表
 ├── tests/                     # 单元 / 集成 / 契约测试
 └── specs/                     # 设计文档与契约（spec-kit 驱动开发）
     ├── 001-v0-fast-mvp/       # v0.1 契约与 schema
     ├── 002-v1-agent-layer/    # V1 ReAct Agent 契约
-    └── 003-v2-video-and-discover/  # V2 视频 + vlm_discover 契约
+    ├── 003-v2-video-and-discover/  # V2 视频 + vlm_discover 契约
+    └── 004-algorithm-deepening/    # 004 算法深化：时序建模升级 + 多模态画质归因
 ```
 
 ---
@@ -616,6 +724,18 @@ report:
 | `TemporalFlicker` 检测器 | ✅ **已实现** | 帧间亮度/色相跳变检测，在 `VideoClipRunner` 层调用，不进单帧流水线 |
 | Deep Mode | ⏸ 推迟 | `vlm_discover` 已满足核心需求；Deep Mode 重构整个调度层代价过高 |
 | PatchCore 异常检测 | ❌ 不实现 | 违反系统「无参考」核心原则，需维护正常样本 memory bank |
+
+### 004 算法深化状态
+
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| C1 运动补偿时序变化 | ✅ **已实现** | Farneback 光流对齐后残差能量，区分真闪烁 vs 镜头运动 |
+| C2 时序 SSIM | ✅ **已实现** | 相邻补偿帧 SSIM 均值，衡量时序一致性 |
+| C3 局部闪烁热力图 | ✅ **已实现** | 分块残差 → `flicker_heatmap` + 带 bbox 的 `localized_segments` |
+| D1 `vlm_caption` VLM 画质描述 | ✅ **已实现** | Agent 新增工具，VLM 生成整帧自然语言画质总结，写入 `quality_caption` |
+| D2 VLM prompt 消融实验 | ✅ **已实现** | `baseline`/`strict`/`loose` 三变体 + `scripts/vlm_prompt_ablation.py` 产出 TPR/FPR 表 |
+| D3 业务场景归因 | ✅ **已实现** | `attribute_scenarios` 把劣化映射到业务场景 + 修复建议，写入 `scenario_attribution` |
+| GUI 展示新能力 | ✅ **已实现** | `lqdd-gui` 展示 VLM 画质描述 / 业务场景归因 / 局部闪烁热力图 |
 
 详见 [`specs/VERSION_ROADMAP.md`](specs/VERSION_ROADMAP.md)。
 
@@ -661,6 +781,7 @@ pytest tests/ -m "not vlm" -q       # 依赖 VLM 服务的测试标记为 @pytes
 | [`specs/001-v0-fast-mvp/`](specs/001-v0-fast-mvp/) | v0.1 契约与 schema |
 | [`specs/002-v1-agent-layer/`](specs/002-v1-agent-layer/) | V1 ReAct Agent / VLM 契约 |
 | [`specs/003-v2-video-and-discover/`](specs/003-v2-video-and-discover/) | V2 视频 + `vlm_discover` 契约 |
+| [`specs/004-algorithm-deepening/`](specs/004-algorithm-deepening/) | 004 算法深化：时序建模升级 + 多模态画质归因契约 |
 
 ---
 

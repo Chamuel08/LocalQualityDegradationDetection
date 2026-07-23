@@ -106,6 +106,10 @@ class QualityReport:
     degradation_summary: DegradationSummary | None = None
     vlm_reasoning_summary: list | None = None
     agent_meta: dict[str, Any] | None = None
+    # 业务场景归因：劣化 → 业务场景 → 修复建议
+    scenario_attribution: list[dict[str, Any]] | None = None
+    # VLM 画质自然语言描述（D1：多模态画质归因深化）
+    quality_caption: dict[str, Any] | None = None
 
 
 def evidence_to_dict(e: Evidence) -> dict[str, Any]:
@@ -157,4 +161,8 @@ def report_to_dict(report: QualityReport) -> dict[str, Any]:
         out["degradation_summary"] = asdict(report.degradation_summary)
     if report.agent_meta:
         out["agent_meta"] = report.agent_meta
+    if report.scenario_attribution:
+        out["scenario_attribution"] = report.scenario_attribution
+    if report.quality_caption:
+        out["quality_caption"] = report.quality_caption
     return out

@@ -18,6 +18,7 @@ from lqdd.models.report import (
     QualityReport,
     TraceEntry,
 )
+from lqdd.attribution.scenario import attribute_scenarios, scenario_attribution_to_dict
 
 
 SEVERITY_ORDER = {
@@ -190,6 +191,7 @@ class ReportGenerator:
         vlm_summary: list | None = None,
         vlm_ms: float = 0.0,
         judge_ms: float = 0.0,
+        quality_caption: dict[str, Any] | None = None,
     ) -> QualityReport:
         mos, breakdown = compute_mos(degradations, self.config, frame_bgr=frame_input.frame)
         perf = PerformanceMetrics(
@@ -200,6 +202,10 @@ class ReportGenerator:
             vlm_ms=vlm_ms,
             judge_ms=judge_ms,
         )
+        # 业务场景归因：劣化 → 业务场景 → 修复建议
+        scenario_attribution = [
+            scenario_attribution_to_dict(a) for a in attribute_scenarios(degradations)
+        ] or None
         return QualityReport(
             report_id=f"rpt_{uuid.uuid4().hex[:12]}",
             video_id=frame_input.frame_id,
@@ -216,4 +222,6 @@ class ReportGenerator:
             degradation_summary=build_summary(degradations),
             vlm_reasoning_summary=vlm_summary,
             agent_meta=asdict(agent_meta) if hasattr(agent_meta, "__dataclass_fields__") else agent_meta,
+            scenario_attribution=scenario_attribution,
+            quality_caption=quality_caption,
         )

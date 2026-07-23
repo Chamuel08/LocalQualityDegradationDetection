@@ -13,7 +13,7 @@ from lqdd.agent.judge_client import (
     parse_agent_step,
     run_judge,
 )
-from lqdd.agent.prompts import VLM_DISCOVER_PROMPT
+from lqdd.agent.prompts import VLM_CAPTION_PROMPT, VLM_DISCOVER_PROMPT
 from lqdd.agent.router import route_nominations
 from lqdd.config.loader import AppConfig
 from lqdd.detectors.registry import build_detector_registry, run_detectors
@@ -221,6 +221,78 @@ def _execute_vlm_discover(
     )
 
 
+def _execute_vlm_caption(
+    ctx: AgentContext,
+    vlm_client: VLMClient,
+    config: AppConfig,
+) -> str:
+    """执行 vlm_caption 工具：让 VLM 对整帧生成自然语言画质描述（D1）。
+
+    与 vlm_discover 的区别：
+    - vlm_discover：聚焦"发现 CV 检不到的语义异常"，输出 findings 列表
+    - vlm_caption：聚焦"对整帧画质的自然语言描述"，输出 caption + overall_quality
+
+    结果写入 ctx.quality_caption，每帧最多执行一次；重复调用时跳过。
+    """
+    import base64
+    import json
+    import time
+
+    import cv2
+
+    if ctx.quality_caption is not None:
+        return "vlm_caption 跳过：本帧已生成过画质描述"
+    if ctx.frame_input is None:
+        return "vlm_caption 失败：frame_input 不可用"
+    if ctx.vlm_calls_count >= config.vlm.max_calls_per_frame:
+        return "vlm_caption 跳过：VLM 调用次数已达上限"
+
+    frame = ctx.frame_input.frame
+    ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    if not ok:
+        return "vlm_caption 失败：帧编码失败"
+    b64 = base64.b64encode(buf.tobytes()).decode("ascii")
+
+    t0 = time.perf_counter()
+    raw = vlm_client.confirm(VLM_CAPTION_PROMPT, b64)
+    latency_ms = (time.perf_counter() - t0) * 1000.0
+    ctx.vlm_calls_count += 1
+    ctx.vlm_ms += latency_ms
+
+    ctx.traces.append(
+        TraceEntry(
+            stage="vlm_caption",
+            module="VLMCaption",
+            timestamp_ms=0.0,
+            duration_ms=latency_ms,
+            input_summary={"frame_id": ctx.frame_input.frame_id},
+            output_summary={"raw_response": str(raw)[:200] if raw else None},
+            decision="vlm_caption_complete" if raw else "vlm_caption_failed",
+            mode="fast",
+        )
+    )
+
+    if raw is None:
+        return "vlm_caption 失败：VLM 服务不可用"
+
+    try:
+        data = raw if isinstance(raw, dict) else json.loads(str(raw))
+        if not isinstance(data, dict):
+            raise ValueError("VLM 返回非 dict")
+    except Exception as exc:
+        return f"vlm_caption 完成（解析失败）：raw={str(raw)[:100]} err={exc}"
+
+    caption = {
+        "overall_quality": str(data.get("overall_quality", "unknown")),
+        "caption": str(data.get("caption", "")),
+        "primary_degradations": list(data.get("primary_degradations", []) or []),
+        "affected_regions": list(data.get("affected_regions", []) or []),
+        "ux_impact": str(data.get("ux_impact", "")),
+    }
+    ctx.quality_caption = caption
+    return f"vlm_caption 完成：{caption['caption'][:80]}"
+
+
 # ---------------------------------------------------------------------------
 # ReAct Agent 主循环
 # ---------------------------------------------------------------------------
@@ -337,6 +409,9 @@ def run_react_agent(
 
         elif action.action == "vlm_discover":
             observation = _execute_vlm_discover(ctx, vlm_client, config)
+
+        elif action.action == "vlm_caption":
+            observation = _execute_vlm_caption(ctx, vlm_client, config)
 
         agent_step.observation = observation
         history.append(agent_step)
@@ -530,6 +605,7 @@ class AgentOrchestrator:
                 }
                 for f in ctx.vlm_discover_findings
             ],
+            quality_caption=ctx.quality_caption,
         )
 
         vlm_summary = [
@@ -552,4 +628,5 @@ class AgentOrchestrator:
             vlm_summary=vlm_summary or None,
             vlm_ms=ctx.vlm_ms,
             judge_ms=ctx.judge_ms,
+            quality_caption=ctx.quality_caption,
         )
