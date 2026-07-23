@@ -76,6 +76,15 @@
     },
     "performance": {
       "$ref": "#/$defs/PerformanceMetrics"
+    },
+    "scenario_attribution": {
+      "type": ["array", "null"],
+      "description": "业务场景归因：劣化 → 业务场景 → 修复建议。有劣化时由 ReportGenerator 无条件产出（v0.1/V1 共用）；无劣化时为 null。",
+      "items": { "$ref": "#/$defs/ScenarioAttribution" }
+    },
+    "quality_caption": {
+      "type": ["object", "null"],
+      "description": "VLM 画质自然语言描述。仅 V1 Agent 触发 vlm_caption 时填充；v0.1 始终为 null。"
     }
   },
   "$defs": {
@@ -260,6 +269,19 @@
         "global_scan_ms": { "type": "number", "minimum": 0 },
         "detection_ms": { "type": "number", "minimum": 0 },
         "aggregation_ms": { "type": "number", "minimum": 0 }
+      }
+    },
+    "ScenarioAttribution": {
+      "type": "object",
+      "description": "业务场景归因项：把检出劣化映射到业务场景 + 修复建议。",
+      "required": ["scenario", "confidence", "degradation_types", "evidence_refs", "recommendation"],
+      "additionalProperties": false,
+      "properties": {
+        "scenario": { "type": "string", "minLength": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "degradation_types": { "type": "array", "items": { "type": "string" } },
+        "evidence_refs": { "type": "array", "items": { "type": "string" } },
+        "recommendation": { "type": "string", "minLength": 1 }
       }
     }
   }
