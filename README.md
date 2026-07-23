@@ -261,7 +261,7 @@ lqdd-gui --port 8000             # 自定义端口
 
 界面布局：
 - **左侧输入区**：单帧图片上传 / 视频上传（Tab 切换）+ 模式 Radio（V1 Agent / v0.1 基线）+ 配置路径
-- **右侧结果区**：mask 叠加预览图 + MOS/严重度总览 + 劣化列表表 + Agent 决策轨迹表 + `vlm_discover` 主动发现 + 视频 flicker 聚合 + 完整 JSON（可折叠）
+- **右侧结果区**：mask 叠加预览图 + MOS/严重度总览 + 劣化列表表 + Agent 决策轨迹表 + `vlm_discover` 主动发现 + VLM 画质描述（`vlm_caption`）+ 业务场景归因（`scenario_attribution`）+ 视频 flicker 聚合（含 C1 运动补偿 / C2 时序 SSIM / C3 局部闪烁热力图）+ 完整 JSON（可折叠）
 
 > V1 模式需 Ollama 已运行；不可用时 Agent 自动规则降级，GUI 不阻塞。
 
