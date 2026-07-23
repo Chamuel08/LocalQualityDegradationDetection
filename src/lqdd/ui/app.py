@@ -11,6 +11,7 @@ frozen 模式（PyInstaller 打包后）下从 bundle 内解析 config.example.y
 """
 from __future__ import annotations
 
+import os
 import sys
 import time
 import urllib.request
@@ -371,8 +372,24 @@ def _wait_for_server(port: int, timeout_s: float = 30.0) -> bool:
     return False
 
 
+def _ensure_localhost_no_proxy() -> None:
+    """Ensure localhost / 127.0.0.1 bypasses any HTTP proxy so Gradio's
+    startup-events self-check can reach the local server (avoids 502 when a
+    proxy intercepts localhost)."""
+    hosts = ["127.0.0.1", "localhost", "::1"]
+    for var in ("no_proxy", "NO_PROXY"):
+        cur = os.environ.get(var, "")
+        parts = [p.strip() for p in cur.split(",") if p.strip()]
+        for h in hosts:
+            if h not in parts:
+                parts.append(h)
+        os.environ[var] = ",".join(parts)
+
+
 def main() -> int:
     import argparse
+
+    _ensure_localhost_no_proxy()
 
     parser = argparse.ArgumentParser(prog="lqdd-gui", description="LQDD 图形界面")
     parser.add_argument("--browser", action="store_true", help="用浏览器而非 pywebview 原生窗口")
@@ -398,13 +415,12 @@ def main() -> int:
             server_name="127.0.0.1",
             server_port=args.port,
             prevent_thread_lock=True,
-            show_api=False,
             share=False,
             theme=theme,
         )
         if not _wait_for_server(args.port):
             print(f"[lqdd-gui] server 未在端口 {args.port} 启动，回退浏览器", file=sys.stderr)
-            demo.launch(server_name="127.0.0.1", server_port=args.port, share=args.share, show_api=False, theme=theme)
+            demo.launch(server_name="127.0.0.1", server_port=args.port, share=args.share, theme=theme)
             return 0
 
         import webview
@@ -425,7 +441,6 @@ def main() -> int:
             server_name="127.0.0.1",
             server_port=args.port,
             share=args.share,
-            show_api=False,
             theme=theme,
         )
     return 0
