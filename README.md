@@ -135,15 +135,29 @@ python detect.py --image docs/demo/case_blur.png --legacy-fixed --output report_
 python detect.py --image-dir /path/to/frames/ --legacy-fixed --output-dir reports/
 ```
 
+### CLI — 视频检测（V2 `VideoClipRunner`）
+
+```bash
+# v0.1 基线（无 Agent / VLM，快）— 均匀抽帧 16 帧跑逐帧检测 + TemporalFlicker 聚合
+python detect.py --video docs/demo/clip_jimeng_degraded.mp4 --legacy-fixed --max-frames 16 --output /tmp/video_report.json
+
+# V1 ReAct Agent（需 Ollama，慢；每帧会调 LLM Judge / VLM）
+python detect.py --video docs/demo/clip_jimeng_degraded.mp4 --config config.yaml --max-frames 16 --output /tmp/video_report_v1.json
+```
+
+输出 JSON 顶层为 `VideoClipReport`：`aggregate_mos` / `worst_frame_mos` / `worst_frame_index` / `flicker{...}` / `degradation_summary` / `frame_reports[]`（每帧一份完整单帧报告）。`--max-frames` 控制均匀抽帧数（默认 8）；要命中短时劣化窗口（如 3s/7s 处的局部异常）建议调大到 16+。
+
 ### CLI 参数
 
 | 参数 | 说明 |
 |------|------|
 | `--image PATH` | 单张输入图像 |
 | `--image-dir PATH` | 图像目录（非递归） |
+| `--video PATH` | 视频文件 → 多帧 V2 clip 流程（均匀抽帧 + `TemporalFlicker` 聚合） |
+| `--max-frames N` | 视频模式：最大抽帧数（默认 8） |
 | `--config PATH` | YAML 配置（默认读 `config.yaml`） |
 | `--legacy-fixed` | v0.1 固定流水线，跳过 Agent 层 |
-| `--output PATH` | 输出文件（`-` = stdout JSON；`.html` = HTML 可视化） |
+| `--output PATH` | 输出文件（`-` = stdout JSON；`.html` = HTML 可视化；视频模式仅 JSON） |
 | `--output-dir PATH` | 批量输出目录 |
 | `--metadata PATH` | 可选 metadata JSON 侧车文件 |
 | `--ignore-regions PATH` | 可选 ignore-regions JSON 侧车文件 |
@@ -439,6 +453,25 @@ result = runner.run(frames, clip_id="clip_001")
 ```
 
 `TemporalFlicker` 检出帧 2→3 间存在亮度跳变（18.4 > 阈值 8.0），标记为 `moderate`；C1 运动补偿残差小（0.52）说明该跳变非镜头运动所致；C2 时序 SSIM 0.96 说明整体时序一致；C3 热力图 + 局部段定位闪烁区域。`degradation_summary` 跨帧汇总各劣化类型出现次数。
+
+### V2 视频流程验证（`clip_jimeng_degraded.mp4`）
+
+用一段 10s 人像视频（即梦生成 + 脚本注入降质：3s/7s 处人像边缘注入绿光溢出/锯齿/halo 抠图痕迹，全程低码率压缩）跑 `--video` 验证整条 V2 链路：
+
+```bash
+python detect.py --video docs/demo/clip_jimeng_degraded.mp4 --legacy-fixed --max-frames 16 --output /tmp/video_report.json
+# video: clip_jimeng_degraded.mp4 | frames=16 | aggregate_mos=2.731 | worst_frame_mos=2.452 @ idx=5
+#       | flicker=True (ratio=0.867, max_luma_delta=8.8)
+#       | degradations={'blockiness':16,'blur':16,'mosaic':16,'banding':5,'green_spill':3,'background_artifact':10,'face_blur':2}
+```
+
+验证结论：
+
+- **逐帧 MOS + 聚合**：16 帧全部由 CLIP-IQA 出分（2.45–3.13，无 null），`aggregate_mos=2.731`、`worst_frame_mos=2.452@idx5`——视频输入同样算 MOS，逐帧 CLIP-IQA 后聚合。
+- **局部时序异常被精准定位**：`green_spill` 仅命中 idx 4/5（≈3s 窗口）与 idx 11（≈7s 窗口），恰好对应注入抠图痕迹的 3s/7s；且**最差帧正是 green_spill 帧**——抠图痕迹拉低了主观分。
+- **全程压缩 vs 局部异常可区分**：`blockiness/blur/mosaic` 在全部 16 帧出现（全程低码率压缩），而 `green_spill` 只在 3s/7s 出现（局部时序异常）。
+- **TemporalFlicker 三件套**：C1 运动补偿残差 `mean=10.98/max=16.89`、C2 时序 SSIM `0.8593`、C3 局部段含 critical bbox `[0,224,720,1056]` max_delta `91.96`（人像区，正是抠图痕迹"出现/消失"的帧间跳变）。
+
 
 ### `vlm_discover` 主动发现示例
 

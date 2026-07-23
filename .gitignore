@@ -34,6 +34,11 @@ docs/design/
 examples/
 scripts/export_feishu_assets.py
 
+# Local CLI debug outputs
+tmp.json
+report.json
+report.html
+
 # Local evaluation outputs
 benchmark/runs/
 benchmark/results.json

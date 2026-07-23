@@ -105,11 +105,88 @@ def _collect_images(directory: Path) -> list[Path]:
     return sorted(p for p in directory.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_EXTS)
 
 
+def _video_report_to_dict(result) -> dict:
+    """Serialize a VideoClipReport to a JSON dict (mirrors ui/app.run_video)."""
+    fr = result.flicker_result
+    return {
+        "clip_id": result.clip_id,
+        "frame_count": result.frame_count,
+        "aggregate_mos": result.aggregate_mos,
+        "worst_frame_mos": result.worst_frame_mos,
+        "worst_frame_index": result.worst_frame_index,
+        "flicker": {
+            "is_flickering": fr.is_flickering,
+            "flicker_ratio": fr.flicker_ratio,
+            "max_luma_delta": float(fr.max_luma_delta),
+            "mean_motion_compensated_delta": getattr(fr, "mean_motion_compensated_delta", 0.0),
+            "max_motion_compensated_delta": getattr(fr, "max_motion_compensated_delta", 0.0),
+            "temporal_ssim": getattr(fr, "temporal_ssim", 1.0),
+            "flicker_segments": [
+                {
+                    "start_frame": s.start_frame,
+                    "end_frame": s.end_frame,
+                    "max_delta": s.max_delta,
+                    "metric": s.metric,
+                    "severity": s.severity,
+                }
+                for s in fr.flicker_segments
+            ],
+            "localized_segments": [
+                {
+                    "max_delta": s.max_delta,
+                    "metric": s.metric,
+                    "severity": s.severity,
+                    "bbox": s.bbox,
+                }
+                for s in getattr(fr, "localized_segments", [])
+            ],
+        },
+        "degradation_summary": result.degradation_summary,
+        "frame_reports": [report_to_dict(r) for r in result.frame_reports],
+    }
+
+
+def _run_video(args, pipeline) -> int:
+    from lqdd.pipeline.video_clip_runner import VideoClipRunner, sample_frames_from_video
+
+    if not args.video.is_file():
+        print(f"error: video not found: {args.video}", file=sys.stderr)
+        return 1
+    try:
+        frames = sample_frames_from_video(args.video, max_frames=args.max_frames)
+    except (FileNotFoundError, RuntimeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    runner = VideoClipRunner(pipeline)
+    result = runner.run(frames, clip_id=args.video.stem)
+    data = _video_report_to_dict(result)
+
+    fr = result.flicker_result
+    print(
+        f"video: {args.video.name} | frames={result.frame_count} | "
+        f"aggregate_mos={result.aggregate_mos} | worst_frame_mos={result.worst_frame_mos} "
+        f"@ idx={result.worst_frame_index} | flicker={fr.is_flickering} "
+        f"(ratio={fr.flicker_ratio:.3f}, max_luma_delta={fr.max_luma_delta:.1f}) | "
+        f"degradations={result.degradation_summary}",
+        file=sys.stderr,
+    )
+
+    if str(args.output) == "-":
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+    else:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"wrote: {args.output}", file=sys.stderr)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="detect.py", description="Local Quality Degradation Detection v0.1")
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument("--image", type=Path, help="Single image file")
     group.add_argument("--image-dir", type=Path, help="Directory of images (non-recursive)")
+    group.add_argument("--video", type=Path, help="Video file -> multi-frame V2 clip pipeline")
     parser.add_argument("--mode", default="fast", help="Detection mode (v0.1: fast only)")
     parser.add_argument("--output", type=Path, default=Path("-"), help="Output file (- for stdout JSON)")
     parser.add_argument("--output-dir", type=Path, help="Batch output directory")
@@ -117,6 +194,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ignore-regions", type=Path, help="Ignore regions JSON sidecar")
     parser.add_argument("--config", type=Path, help="YAML config path")
     parser.add_argument("--frame-id", type=str, help="Override frame_id for single image")
+    parser.add_argument("--max-frames", type=int, default=8, help="Video mode: max frames to sample")
     parser.add_argument("--legacy-fixed", action="store_true", help="Use v0.1 fixed pipeline (no Agent)")
     parser.add_argument("--verbose", action="store_true")
     return parser
@@ -125,8 +203,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
-    if not args.image and not args.image_dir:
-        print("error: specify --image or --image-dir", file=sys.stderr)
+    if not args.image and not args.image_dir and not args.video:
+        print("error: specify --image, --image-dir or --video", file=sys.stderr)
         return 2
     if args.mode == "deep":
         print("error: deep mode not implemented in 002; use --mode fast", file=sys.stderr)
@@ -142,6 +220,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         config.report.system_version = "0.1.0"
         pipeline = FastPipeline(config)
+
+    if args.video:
+        return _run_video(args, pipeline)
 
     metadata: BadcaseMetadata | None = None
     source_info: SourceInfo | None = None

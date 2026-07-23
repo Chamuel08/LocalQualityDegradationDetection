@@ -97,3 +97,48 @@ def test_cli_missing_image() -> None:
     proc = _run_detect(["--image", "/nonexistent/frame.png", "--mode", "fast"])
     assert proc.returncode == 1
     assert "image not found" in proc.stderr
+
+
+def test_cli_video_output(tmp_path: Path) -> None:
+    """--video should emit a VideoClipReport JSON (V2 clip pipeline)."""
+    import cv2
+    import numpy as np
+
+    video = tmp_path / "tiny.mp4"
+    h, w = 128, 128
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    writer = cv2.VideoWriter(str(video), fourcc, 8, (w, h))
+    if not writer.isOpened():
+        pytest.skip("cv2.VideoWriter mp4v not available")
+    try:
+        for i in range(6):
+            frame = np.full((h, w, 3), 40 + i * 10, np.uint8)
+            cv2.rectangle(frame, (20, 20), (100, 100), (0, 0, 200), -1)
+            writer.write(frame)
+    finally:
+        writer.release()
+    if not video.is_file() or video.stat().st_size == 0:
+        pytest.skip("could not write synthetic video")
+
+    out = tmp_path / "video_report.json"
+    proc = _run_detect(
+        ["--video", str(video), "--mode", "fast", "--legacy-fixed",
+         "--max-frames", "4", "--output", str(out)]
+    )
+    assert proc.returncode == 0, proc.stderr
+    data = json.loads(out.read_text(encoding="utf-8"))
+    # VideoClipReport top-level shape
+    assert data["clip_id"] == "tiny"
+    assert data["frame_count"] == 4
+    assert "aggregate_mos" in data  # number or null
+    assert "worst_frame_mos" in data
+    assert "worst_frame_index" in data
+    assert "flicker" in data and "is_flickering" in data["flicker"]
+    assert isinstance(data["degradation_summary"], dict)
+    assert isinstance(data["frame_reports"], list) and len(data["frame_reports"]) == 4
+
+
+def test_cli_video_missing_file(tmp_path: Path) -> None:
+    proc = _run_detect(["--video", "/nonexistent/clip.mp4", "--mode", "fast", "--legacy-fixed"])
+    assert proc.returncode == 1
+    assert "video not found" in proc.stderr
